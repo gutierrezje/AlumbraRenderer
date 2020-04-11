@@ -3,22 +3,26 @@
 class Buffer
 {
 public:
-	Buffer(float* data, int amount, int componentCount);
+	Buffer(int bufferSize, int vertexCount, int numComponents);
 	~Buffer();
+	void addData(const float* data, int dataSize);
 
-	inline unsigned int componentCount() const { return m_componentCount; }
+	inline unsigned int bufferSize() const { return m_bufferSize; }
+	inline int numComponents() const { return m_numComponents; }
+	inline unsigned int vertexCount() const { return m_vertexCount; }
 	inline unsigned int bufferID() const { return m_bufferID; }
 
 private:
-	unsigned int m_bufferID;
-	int m_componentCount;
+	unsigned int m_bufferID, m_vertexCount, m_bufferSize, m_dataOffset;
+	int m_numComponents;
 };
 
 class VertexArray
 {
 public:
-	VertexArray(Buffer& buffer);
+	VertexArray();
 	~VertexArray();
+	void useBuffer(const Buffer& buffer);
 	void bind();
 	inline unsigned int vertexArrayID() const { return m_vertexArrayID; }
 

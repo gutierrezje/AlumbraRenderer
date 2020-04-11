@@ -7,7 +7,7 @@ Model::Model(const Mesh& mesh) {
 	meshes.push_back(mesh);
 }
 
-Model::Model(std::string const& path) {
+Model::Model(const std::string& path) {
 	loadModel(path);
 }
 
@@ -19,7 +19,7 @@ void Model::draw(Shader shader) {
 
 /* Loads a model with supported ASSIMP extensions from file and stores the resulting meshes
 	in the meshes vector */
-void Model::loadModel(std::string const& path) {
+void Model::loadModel(const std::string& path) {
 	// read the file via ASSIMP
 	Assimp::Importer importer;
 	const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);

@@ -12,7 +12,7 @@ public:
 	/* Functions */
 	Model(const Mesh& mesh);
 	/* Constructor, expects a filepath to a 3D model */
-	Model(std::string const& path);
+	Model(const std::string& path);
 	void draw(Shader shader);
 
 private:
@@ -23,7 +23,7 @@ private:
 	std::vector<MeshTexture> texturesLoaded;
 
 	/* Functions */
-	void loadModel(std::string const& path);
+	void loadModel(const std::string& path);
 	void processNode(aiNode* node, const aiScene* scene);
 	Mesh processMesh(aiMesh* mesh, const aiScene* scene);
 	std::vector<MeshTexture> loadMaterialTextures(aiMaterial* mat, aiTextureType type,

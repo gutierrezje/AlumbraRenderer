@@ -13,9 +13,11 @@ public:
 	~Renderer();
 
 	void init();
-	void drawScene();
+	void drawScene(bool useEnviro = false);
 
 private:
-	Scene* m_sceneView;
-	Shader shader;
+	Scene* m_scene;
+	Shader m_modelShader;
+	Shader m_cubemapShader;
+	Shader m_enviroShader;
 };

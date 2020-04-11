@@ -21,12 +21,12 @@ void Texture::loadTexture(std::string path, bool gamma)
   m_path = path;
   int width, height, nrComponents;
   unsigned char* data = stbi_load(path.c_str(), &width, &height, &nrComponents, 0);
-  if (data)
-  {
+  if (data) {
     GLenum internalFormat, format;
     if (sizeof(data) == 8)
       internalFormat = GL_RGB4;
     else
+      // TODO: Log
       std::cout << "Texture Error: Unrecognized internal format\n";
 
     if (nrComponents == 1)
@@ -36,6 +36,7 @@ void Texture::loadTexture(std::string path, bool gamma)
     else if (nrComponents == 4)
       format = GL_RGBA;
     else
+      // TODO: Log
       std::cout << "Texture Error: Unsupported image format\n";
     
     glTextureStorage2D(m_textureID, 1, internalFormat, width, height);
@@ -44,8 +45,8 @@ void Texture::loadTexture(std::string path, bool gamma)
 
     stbi_image_free(data);
   }
-  else
-  {
+  else {
+    // TODO: Log
     std::cout << "Texture failed to load at path: " << path << std::endl;
     stbi_image_free(data);
   }

@@ -22,8 +22,7 @@ void Mesh::draw(Shader shader) {
 	unsigned int specularNr = 1;
 
 	for (unsigned int i = 0; i < textures.size(); i++) {
-		glBindTextureUnit(i, textures[i].id);
-		//glActiveTexture(GL_TEXTURE0 + i);	// activate proper texture unit before binding
+		glBindTextureUnit(i, textures[i].id);	// bind proper texture unit before binding
 		// retrieve texture number
 		std::string number;
 		std::string name = textures[i].type;
@@ -34,12 +33,7 @@ void Mesh::draw(Shader shader) {
 
 		// now set the sampler to the correct texture unit
 		shader.setSampler((name + number).c_str(), i);
-		//shader.setFloat((name + number).c_str(), i);
-		// and finally bind the texture
-		//glBindTexture(GL_TEXTURE_2D, textures[i].id);
 	}
-	// set back to default once configured
-	//glActiveTexture(GL_TEXTURE0);
 	// draw mesh
 	glBindVertexArray(VAO);
 	if (indices.size() > 0) {
