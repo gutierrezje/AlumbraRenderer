@@ -10,13 +10,13 @@
 class Scene
 {
 public:
-	Scene();
-	~Scene();
+    Scene();
+    ~Scene();
 
-	void init();
-	inline std::vector<Model*>& models() { return m_models; }
-	inline Cubemap& cubemap() { return m_cubemap; }
+    void init();
+    inline std::vector<Model*>& models() { return m_models; }
+    inline Cubemap& cubemap() { return m_cubemap; }
 private:
-	std::vector<Model*> m_models;
-	Cubemap m_cubemap;
+    std::vector<Model*> m_models;
+    Cubemap m_cubemap;
 };
