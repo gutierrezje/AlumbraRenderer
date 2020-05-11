@@ -81,6 +81,9 @@
     <ClCompile Include="src\Cubemap.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Framebuffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\FreeCamera.h">
@@ -143,6 +146,9 @@
     <ClInclude Include="src\Cubemap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\Framebuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\shaders\basic.frag" />
@@ -151,5 +157,7 @@
     <None Include="src\shaders\cubemap.frag" />
     <None Include="src\shaders\environment.vert" />
     <None Include="src\shaders\environment.frag" />
+    <None Include="src\shaders\framequad.vert" />
+    <None Include="src\shaders\framequad.frag" />
   </ItemGroup>
 </Project>

@@ -29,11 +29,11 @@ void Texture::loadTexture(const std::string& path, bool gamma)
         }
         else if (nrComponents == 3) {
             format = GL_RGB;
-            internalFormat = GL_RGB4;
+            internalFormat = GL_SRGB8;
         }
         else if (nrComponents == 4) {
             format = GL_RGBA;
-            internalFormat = GL_RGBA4;
+            internalFormat = GL_SRGB8_ALPHA8;
         }
         else
             // TODO: Log

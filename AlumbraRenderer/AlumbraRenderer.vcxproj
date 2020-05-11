@@ -150,6 +150,7 @@
     <ClCompile Include="src\Alumbra.cpp" />
     <ClCompile Include="src\Buffers.cpp" />
     <ClCompile Include="src\Cubemap.cpp" />
+    <ClCompile Include="src\Framebuffer.cpp" />
     <ClCompile Include="src\FreeCamera.cpp" />
     <ClCompile Include="src\mesh\Mesh.cpp" />
     <ClCompile Include="src\mesh\Model.cpp" />
@@ -172,6 +173,7 @@
   <ItemGroup>
     <ClInclude Include="src\Buffers.h" />
     <ClInclude Include="src\Cubemap.h" />
+    <ClInclude Include="src\Framebuffer.h" />
     <ClInclude Include="src\FreeCamera.h" />
     <ClInclude Include="src\mesh\Mesh.h" />
     <ClInclude Include="src\mesh\Model.h" />
@@ -198,6 +200,8 @@
     <None Include="src\shaders\cubemap.vert" />
     <None Include="src\shaders\environment.frag" />
     <None Include="src\shaders\environment.vert" />
+    <None Include="src\shaders\framequad.frag" />
+    <None Include="src\shaders\framequad.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -43,8 +43,7 @@ void Mesh::draw(Shader shader) {
     else {
         glDrawArrays(GL_TRIANGLES, 0, vertices.size());
     }
-    glBindVertexArray(0);
-    glBindTextureUnit(0, 0);
+    //glBindVertexArray(0);
     glBindTextureUnit(1, 0);
 }
 

@@ -73,7 +73,7 @@ vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir) {
     vec3 specTex = texture(material.texture_specular1, TexCoords).rgb;
 
     // Ambient shading
-    vec3 ambient = 0.3 * diffTex;
+    vec3 ambient = 0.1 * diffTex;
     // Diffuse shading
     float diff = max(dot(normal, lightDir), 0.0);
     vec3 diffuse = diff * diffTex;
@@ -99,7 +99,7 @@ vec3 calcDirectLight(DirectionalLight light, vec3 normal, vec3 fragPos, vec3 vie
     float diff = max(dot(normal, lightDir), 0.0);
     vec3 halfwayDir = normalize(lightDir + viewDir);
     float spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
-    vec3 ambient = 0.3 * diffTex;
+    vec3 ambient = 0.1 * diffTex;
     vec3 diffuse = diff * diffTex;
     vec3 specular = spec * specTex;
 
@@ -119,7 +119,7 @@ vec3 calcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir) {
 
     vec3 diffTex = texture(material.texture_diffuse1, TexCoords).rgb;
     vec3 specTex = texture(material.texture_specular1, TexCoords).rgb;
-    vec3 ambient = 0.3 * diffTex;
+    vec3 ambient = 0.1 * diffTex;
     vec3 diffuse = diff * diffTex;
     vec3 specular = spec * specTex;
     

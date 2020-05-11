@@ -1,7 +1,9 @@
 #include "pch.h"
 #include "Buffers.h"
+#include "Framebuffer.h"
+#include "Window.h"
 
-Buffer::Buffer(int bufferSize, int vertexCount, int numComponents)
+VertexBuffer::VertexBuffer(int bufferSize, int vertexCount, int numComponents)
 {
     m_bufferSize = bufferSize;
     m_numComponents = numComponents;
@@ -12,13 +14,9 @@ Buffer::Buffer(int bufferSize, int vertexCount, int numComponents)
     glNamedBufferStorage(m_bufferID, bufferSize, nullptr, GL_DYNAMIC_STORAGE_BIT);
 }
 
-Buffer::~Buffer()
-{
-    glInvalidateBufferData(m_bufferID);
-    glDeleteBuffers(1, &m_bufferID);
-}
+VertexBuffer::~VertexBuffer() {}
 
-void Buffer::addData(const float* data, int dataSize)
+void VertexBuffer::addData(const float* data, int dataSize)
 {
     glNamedBufferSubData(m_bufferID, m_dataOffset, dataSize, data);
     m_dataOffset += dataSize;
@@ -31,18 +29,30 @@ VertexArray::VertexArray()
 
 VertexArray::~VertexArray() {}
 
-void VertexArray::useBuffer(const Buffer& buffer)
+void VertexArray::loadBuffer(const VertexBuffer& buffer, int texIndex)
 {
-    glVertexArrayVertexBuffer(m_vertexArrayID, 0, buffer.bufferID(), 0, sizeof(float) * 3);
+    int fsize = sizeof(float);
+    glVertexArrayVertexBuffer(m_vertexArrayID, 0, buffer.vertexBufferID(), 
+        0, fsize * 3);
+    if (texIndex >= 0) {
+        glVertexArrayVertexBuffer(m_vertexArrayID, 1, buffer.vertexBufferID(),
+            fsize * texIndex * 3 * buffer.vertexCount(), fsize * 2);
+    }
 
-    int dataSize, offset = 0;
-    for (int index = 0; index < buffer.numComponents(); ++index) {
-        dataSize = (index == texIndex) ? texDataSize : otherDataSize;
-        glEnableVertexArrayAttrib(m_vertexArrayID, index);
-        glVertexArrayAttribFormat(m_vertexArrayID, index, dataSize, GL_FLOAT,
-            GL_FALSE, offset * sizeof(float));
-        glVertexArrayAttribBinding(m_vertexArrayID, index, 0);
-        offset += dataSize * buffer.vertexCount();
+    int dataSize = 3, bindingindex = 0;
+    int vaOffset, totalOffset = 0;
+    for (int attribindex = 0; attribindex < buffer.numComponents(); attribindex++) {
+        vaOffset = totalOffset;
+        if (attribindex == texIndex) {
+            dataSize = 2;
+            vaOffset = 0;
+            bindingindex = 1;
+        }
+        glEnableVertexArrayAttrib(m_vertexArrayID, attribindex);
+        glVertexArrayAttribFormat(m_vertexArrayID, attribindex, dataSize, GL_FLOAT,
+            GL_FALSE, vaOffset);
+        glVertexArrayAttribBinding(m_vertexArrayID, attribindex, bindingindex);
+        totalOffset += dataSize * buffer.vertexCount() * sizeof(float);
     }
 }
 

@@ -6,8 +6,8 @@
 
 #include <stb_image.h>
 
-const int windowWidth = 2560;
-const int windowHeight = 1440;
+const int windowWidth = 1920;
+const int windowHeight = 1080;
 
 // timing
 float deltaTime = 0.0f;
