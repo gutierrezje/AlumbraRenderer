@@ -26,12 +26,10 @@ void Renderer::init()
     glEnable(GL_FRAMEBUFFER_SRGB);
 
     // Setting up framebuffer quad
-    int size = sizeof(fbQuadPos) + //sizeof(fbQuadNorm) + 
-        sizeof(fbQuadTex);
-    VertexBuffer vbo(size, 6, 2);
-    vbo.addData(fbQuadPos, sizeof(fbQuadPos));
-    //vbo.addData(fbQuadNorm, sizeof(fbQuadNorm));
-    vbo.addData(fbQuadTex, sizeof(fbQuadTex));
+    int size = sizeof(fbQuadPos) + sizeof(fbQuadTex);
+    DataBuffer vbo(size, 6, 2);
+    vbo.addData(fbQuadPos, 3);
+    vbo.addData(fbQuadTex, 2);
     VertexArray vao;
     vao.loadBuffer(vbo, 1);
     m_fbQuadVAO = vao.vertexArrayID();

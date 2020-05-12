@@ -53,34 +53,24 @@ void Model::processNode(aiNode* node, const aiScene* scene) {
 
 Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
     // data to fill
-    std::vector<Vertex> vertices;
+    std::vector<float> positions;
+    std::vector<float> normals;
+    std::vector<float> texCoords;
     std::vector<unsigned int> indices;
     std::vector<MeshTexture> textures;
 
     // walk through each of the mesh's vertices
     for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
-        Vertex vertex;
-        // process vertex positions, normals, and texture coordinates
-        glm::vec3 vector; // 
-        vector.x = mesh->mVertices[i].x;
-        vector.y = mesh->mVertices[i].y;
-        vector.z = mesh->mVertices[i].z;
-        vertex.Position = vector;
-        vector.x = mesh->mNormals[i].x;
-        vector.y = mesh->mNormals[i].y;
-        vector.z = mesh->mNormals[i].z;
-        vertex.Normal = vector;
-        if (mesh->mTextureCoords[0]) { // does the mesh contain texture coordinates
-            glm::vec2 vec;
-            vec.x = mesh->mTextureCoords[0][i].x;
-            vec.y = mesh->mTextureCoords[0][i].y;
-            vertex.TexCoords = vec;
+        positions.push_back(mesh->mVertices[i].x);
+        positions.push_back(mesh->mVertices[i].y);
+        positions.push_back(mesh->mVertices[i].z);
+        normals.push_back(mesh->mNormals[i].x);
+        normals.push_back(mesh->mNormals[i].y);
+        normals.push_back(mesh->mNormals[i].z);
+        if (mesh->mTextureCoords[0]) {
+            texCoords.push_back(mesh->mTextureCoords[0][i].x);
+            texCoords.push_back(mesh->mTextureCoords[0][i].y);
         }
-        else {
-            vertex.TexCoords = glm::vec2(0.0f, 0.0f);
-        }
-
-        vertices.push_back(vertex);
     }
     // now walk through each of the mesh's faces and retrieve the corresponding vertex indices
     for (unsigned int i = 0; i < mesh->mNumFaces; i++) {
@@ -102,11 +92,11 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
     }
 
     // return a mesh object created from the extracted mesh data
-    return Mesh(vertices, indices, textures);
+    return Mesh(positions, normals, texCoords, indices, textures);
 }
 
 /* Checks all material textures of a given type and loads the textures if they're not loaded yet.
-    The required info is returned as a TExture struct */
+    The required info is returned as a Texture struct */
 std::vector<MeshTexture> Model::loadMaterialTextures(aiMaterial* mat,
     aiTextureType type, std::string typeName) {
     std::vector<MeshTexture> textures;

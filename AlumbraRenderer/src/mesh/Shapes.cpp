@@ -3,14 +3,17 @@
 
 Cube::Cube(const std::string& diffTexPath, const std::string& specTexPath)
 {
-    vertices = cubeVertices;
+    //vertices = cubeVertices;
+    m_positions = cubePositions;
+    m_normals = cubeNormals;
+    m_texCoords = cubeTexCoords;
     Texture texture;
     texture.loadTexture(diffTexPath);
-    textures.push_back({ texture.textureID(), "texture_diffuse", texture.path() });
+    m_textures.push_back({ texture.textureID(), "texture_diffuse", texture.path() });
 
     if (specTexPath != "") {
         texture.loadTexture(specTexPath);
-        textures.push_back({ texture.textureID(), "texture_specular", texture.path() });
+        m_textures.push_back({ texture.textureID(), "texture_specular", texture.path() });
     }
 
     setupMesh();
@@ -20,14 +23,17 @@ Cube::~Cube() {}
 
 Quad::Quad(const std::string& diffTexPath, const std::string& specTexPath)
 {
-    vertices = quadVertices;
+    //vertices = quadVertices;
+    m_positions = quadPositions;
+    m_normals = quadNormals;
+    m_texCoords = quadTexCoords;
     Texture texture;
     texture.loadTexture(diffTexPath);
-    textures.push_back({ texture.textureID(), "texture_diffuse", texture.path() });
+    m_textures.push_back({ texture.textureID(), "texture_diffuse", texture.path() });
 
     if (specTexPath != "") {
         texture.loadTexture(specTexPath);
-        textures.push_back({ texture.textureID(), "texture_specular", texture.path() });
+        m_textures.push_back({ texture.textureID(), "texture_specular", texture.path() });
     }
 
     setupMesh();

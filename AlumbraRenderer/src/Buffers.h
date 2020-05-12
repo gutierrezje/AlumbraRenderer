@@ -1,38 +1,33 @@
 #pragma once
 
-class VertexBuffer {
+class DataBuffer {
 public:
-    VertexBuffer(int bufferSize, int vertexCount, int numComponents);
-    ~VertexBuffer();
-    void addData(const float* data, int dataSize);
+    DataBuffer(int bufferSize, int vertexCount, int numComponents, int indexCount = 0);
+    ~DataBuffer();
+    void addIndices(const unsigned int* idcs);
+    void addData(const float* data, int dataPerVertex);
 
-    inline unsigned int bufferSize() const { return m_bufferSize; }
+    //inline unsigned int bufferSize() const { return m_bufferSize; }
     inline int numComponents() const { return m_numComponents; }
     inline int vertexCount() const { return m_vertexCount; }
-    inline unsigned int vertexBufferID() const { return m_bufferID; }
+    inline unsigned int dataBufferID() const { return m_bufferID; }
+    inline int indexEnd() const { return m_indexEnd; }
 
 private:
-    unsigned int m_bufferID, m_bufferSize, m_dataOffset;
-    int m_numComponents, m_vertexCount;
+    unsigned int m_bufferID;
+    int m_numComponents, m_vertexCount, m_indexCount;
+    long m_indexEnd = 0;
+    long m_dataOffset = 0;
 };
 
 class VertexArray {
 public:
     VertexArray();
     ~VertexArray();
-    void loadBuffer(const VertexBuffer& buffer, int texIndex);
+    void loadBuffer(const DataBuffer& buffer, int texIndex);
     void bind();
     inline unsigned int vertexArrayID() const { return m_vertexArrayID; }
 
 private:
     unsigned int m_vertexArrayID;
-};
-
-class IndexBuffer {
-public:
-    IndexBuffer();
-    ~IndexBuffer();
-    void addIndices(float* idcs);
-
-private:
 };
