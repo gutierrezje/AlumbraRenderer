@@ -12,8 +12,8 @@ Mesh::Mesh(std::vector<float>& positions, std::vector<float>& normals,
     m_positions = positions;
     m_normals = normals;
     m_texCoords = texCoords;
-    this->m_indices = indices;
-    this->m_textures = textures;
+    m_indices = indices;
+    m_textures = textures;
 
     setupMesh();
 }

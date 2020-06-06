@@ -34,7 +34,9 @@ private:
     static int s_width, s_height;
     static bool s_cursorHidden;
 
-    bool init();
+    bool initGLFW();
+    bool initGL();
+    void initImGUI();
 
 };
 

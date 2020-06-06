@@ -19,6 +19,11 @@ void Scene::init()
     m_models.push_back(new Model(Cube("res/textures/red.jpg")));
     m_models.push_back(new Model(Quad("res/textures/metal.png")));
 
+    m_pLights = {
+        PointLight{glm::vec4(2.0f, 1.0f, 1.0f, 0.0f), glm::vec4(1.0), 3.0f, 1.0, glm::vec2(0.0f)},
+        PointLight{glm::vec4(-2.0f, 1.0, -1.0f, 0.0f), glm::vec4(1.0), 3.0f, 1.0, glm::vec2(0.0f)}
+    };
+
     std::vector<std::string> faces
     {
         "res/cubemaps/mountainlake/right.jpg",

@@ -8,10 +8,18 @@ Renderer::Renderer(Scene* sceneView)
     : m_scene(sceneView)
     , m_modelShader(Shader("src/shaders/basic.vert", "src/shaders/basic.frag"))
     , m_cubemapShader(Shader("src/shaders/cubemap.vert", "src/shaders/cubemap.frag"))
-    , m_enviroShader(Shader("src/shaders/environment.vert", "src/shaders/environment.frag"))
     , m_fbShader(Shader("src/shaders/framequad.vert", "src/shaders/framequad.frag"))
     , m_fbo()
 {
+#ifdef _DEBUG
+    // Enable auto debugging
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageCallback(&messageCallback, nullptr);
+    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION,
+        0, nullptr, GL_FALSE);
+#endif // _DEBUG
+
     init();
 }
 
@@ -19,11 +27,15 @@ Renderer::~Renderer() {}
 
 void Renderer::init()
 {
-    // Enable certain features
-    glDepthFunc(GL_LESS);
-    glEnable(GL_CULL_FACE);
-    glFrontFace(GL_CCW);
-    glEnable(GL_FRAMEBUFFER_SRGB);
+    // Setting up lights UBO
+    auto& lights = m_scene->pointLights();
+    unsigned int lightsUBO;
+    glCreateBuffers(1, &lightsUBO);
+    glNamedBufferStorage(lightsUBO, lights.size() * sizeof(struct PointLight),
+        nullptr, GL_DYNAMIC_STORAGE_BIT);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 2, lightsUBO);
+    glNamedBufferSubData(lightsUBO, 0, lights.size() * sizeof(struct PointLight),
+        lights.data());
 
     // Setting up framebuffer quad
     int size = sizeof(fbQuadPos) + sizeof(fbQuadTex);
@@ -35,60 +47,39 @@ void Renderer::init()
     m_fbQuadVAO = vao.vertexArrayID();
 }
 
-void Renderer::drawScene(bool useEnviro)
+void Renderer::beginDraw()
 {
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CCW);
+    glEnable(GL_FRAMEBUFFER_SRGB);
+
     // Enable drawing to framebuffer
     m_fbo.bind();
-    glEnable(GL_DEPTH_TEST);
     m_fbo.clear();
 
     glm::mat4 projectionM = glm::perspective(glm::radians(g_camera.zoom()),
         (float)Window::width() / (float)Window::height(), 0.1f, 100.0f);
     glm::mat4 viewM = g_camera.getViewMatrix();
 
-    Shader& currentShader = useEnviro ? m_enviroShader : m_modelShader;
-    currentShader.use();
-    if (useEnviro) {
-        glBindTextureUnit(0, m_scene->cubemap().cubmapID());
-        currentShader.setSampler("cubemap", 0);
-    }
+    m_modelShader.use();
 
-    currentShader.setVec3("viewPos", g_camera.position());
+    m_modelShader.setInt("numPointLights", m_scene->pointLights().size());
+    m_modelShader.setVec3("viewPos", g_camera.position());
 
-    currentShader.setFloat("material.shininess", 32.0f);
+    m_modelShader.setFloat("material.shininess", 32.0f);
 
-    // Directional light
-    currentShader.setVec3("directLight.direction", 0.2f, -1.0f, 0.3f);
-    currentShader.setVec3("directLight.color", 1.0f, 1.0f, 1.0f);
-    currentShader.setFloat("directLight.intensity", 1.0f);
-
-    // Point lights
-    currentShader.setInt("numPointLights", 0);
-    /*currentShader.setVec3("pointLights[0].position", -1.5f, 1.5f, 1.5f);
-    currentShader.setVec3("pointLights[0].color", 1.0f, 1.0f, 1.0f);
-    currentShader.setFloat("pointLights[0].radius", 5.0f);
-    currentShader.setFloat("pointLights[0].intensity", 5.0f);*/
-
-    // Spotlight
-    currentShader.setVec3("spotLight.position", g_camera.position());
-    currentShader.setVec3("spotLight.direction", g_camera.front());
-    currentShader.setVec3("spotLight.color", 1.0f, 1.0f, 1.0f);
-    currentShader.setFloat("spotLight.radius", 10.0f);
-    currentShader.setFloat("spotLight.intensity", 1.0f);
-    currentShader.setFloat("spotLight.penumbra", glm::cos(glm::radians(12.5f)));
-    currentShader.setFloat("spotLight.umbra", glm::cos(glm::radians(15.0f)));
-
-    currentShader.setMat4("projection", projectionM);
-    currentShader.setMat4("view", viewM);
+    m_modelShader.setMat4("projection", projectionM);
+    m_modelShader.setMat4("view", viewM);
 
     // Draw models
     const auto& models = m_scene->models();
     for (auto model : models) {
         glm::mat4 modelM = glm::mat4(1.0f);
-        //modelM = glm::scale(modelM, glm::vec3(0.2f, 0.2f, 0.2f));
 
-        currentShader.setMat4("model", modelM);
-        model->draw(currentShader);
+        m_modelShader.setMat4("model", modelM);
+        model->draw(m_modelShader);
     }
 
     // Draw cubemap
@@ -107,5 +98,75 @@ void Renderer::drawScene(bool useEnviro)
     glBindVertexArray(m_fbQuadVAO);
     m_fbo.bindTexture();
     glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    drawGUI();
 }
 
+void Renderer::drawGUI()
+{
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    // Debug window
+    {
+        ImGui::Begin("Debug Settings");
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::Text("Keyboard Controls:");
+        ImGui::Text("W/A/S/D - Forward/Left/Back/Right");
+        ImGui::Text("L_ALT/SPACE - Down/Up");
+        ImGui::Text("P - Show/Hide Mouse Pointer");
+        ImGui::Text("ESC - Exit Program");
+
+        ImGui::End();
+    }
+
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+void messageCallback(GLenum source,
+    GLenum type,
+    GLuint id,
+    GLenum severity,
+    GLsizei length,
+    const GLchar* message,
+    const void* userParam)
+{
+    auto const src_str = [source]() {
+        switch (source)
+        {
+        case GL_DEBUG_SOURCE_API: return "API";
+        case GL_DEBUG_SOURCE_WINDOW_SYSTEM: return "WINDOW SYSTEM";
+        case GL_DEBUG_SOURCE_SHADER_COMPILER: return "SHADER COMPILER";
+        case GL_DEBUG_SOURCE_THIRD_PARTY: return "THIRD PARTY";
+        case GL_DEBUG_SOURCE_APPLICATION: return "APPLICATION";
+        case GL_DEBUG_SOURCE_OTHER: return "OTHER";
+        }
+    }();
+
+    auto const type_str = [type]() {
+        switch (type)
+        {
+        case GL_DEBUG_TYPE_ERROR: return "ERROR";
+        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: return "DEPRECATED_BEHAVIOR";
+        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: return "UNDEFINED_BEHAVIOR";
+        case GL_DEBUG_TYPE_PORTABILITY: return "PORTABILITY";
+        case GL_DEBUG_TYPE_PERFORMANCE: return "PERFORMANCE";
+        case GL_DEBUG_TYPE_MARKER: return "MARKER";
+        case GL_DEBUG_TYPE_OTHER: return "OTHER";
+        }
+    }();
+
+    auto const severity_str = [severity]() {
+        switch (severity) {
+        case GL_DEBUG_SEVERITY_NOTIFICATION: return "NOTIFICATION";
+        case GL_DEBUG_SEVERITY_LOW: return "LOW";
+        case GL_DEBUG_SEVERITY_MEDIUM: return "MEDIUM";
+        case GL_DEBUG_SEVERITY_HIGH: return "HIGH";
+        }
+    }();
+
+    std::cout << src_str << ", " << type_str << ", " << severity_str << ", "
+        << id << ": " << message << '\n';
+}

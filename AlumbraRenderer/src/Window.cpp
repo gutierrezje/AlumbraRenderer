@@ -17,10 +17,14 @@ Window::Window(const char* title, int width, int height)
     lastX = (float)s_width / 2.0f;
     lastY = (float)s_height / 2.0f;
 
-    if (!init()) {
+    if (!initGLFW()) {
+        glfwTerminate();
+    }
+    if (!initGL()) {
         glfwDestroyWindow(m_window);
         glfwTerminate();
     }
+    initImGUI();
 }
 
 Window::~Window()
@@ -34,7 +38,7 @@ Window::~Window()
 
 }
 
-bool Window::init()
+bool Window::initGLFW()
 {
     // glfw: initialize and configure
     // ------------------------------
@@ -62,7 +66,10 @@ bool Window::init()
 
     // tell GLFW to capture our mouse
     glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+}
 
+bool Window::initGL()
+{
     // glad: load all OpenGL function pointers
     // ---------------------------------------
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
@@ -70,16 +77,10 @@ bool Window::init()
         std::cout << "Failed to initialize GLAD" << std::endl;
         return false;
     }
+}
 
-#ifdef _DEBUG
-    glEnable(GL_DEBUG_OUTPUT);
-    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-    glDebugMessageCallback(&messageCallback, nullptr);
-    glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION,
-        0, nullptr, GL_FALSE);
-#endif // _DEBUG
-
-
+void Window::initImGUI()
+{
     ImGui::CreateContext();
     ImGui_ImplGlfw_InitForOpenGL(m_window, false);
     ImGui_ImplOpenGL3_Init("#version 450");
@@ -178,50 +179,4 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         GLenum cursorOption = win->cursorHidden() ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL;
         glfwSetInputMode(win->windowInstance(), GLFW_CURSOR, cursorOption);
     }
-}
-
-void messageCallback(GLenum source,
-    GLenum type,
-    GLuint id,
-    GLenum severity,
-    GLsizei length,
-    const GLchar* message,
-    const void* userParam)
-{
-    auto const src_str = [source]() {
-        switch (source)
-        {
-        case GL_DEBUG_SOURCE_API: return "API";
-        case GL_DEBUG_SOURCE_WINDOW_SYSTEM: return "WINDOW SYSTEM";
-        case GL_DEBUG_SOURCE_SHADER_COMPILER: return "SHADER COMPILER";
-        case GL_DEBUG_SOURCE_THIRD_PARTY: return "THIRD PARTY";
-        case GL_DEBUG_SOURCE_APPLICATION: return "APPLICATION";
-        case GL_DEBUG_SOURCE_OTHER: return "OTHER";
-        }
-    }();
-
-    auto const type_str = [type]() {
-        switch (type)
-        {
-        case GL_DEBUG_TYPE_ERROR: return "ERROR";
-        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: return "DEPRECATED_BEHAVIOR";
-        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: return "UNDEFINED_BEHAVIOR";
-        case GL_DEBUG_TYPE_PORTABILITY: return "PORTABILITY";
-        case GL_DEBUG_TYPE_PERFORMANCE: return "PERFORMANCE";
-        case GL_DEBUG_TYPE_MARKER: return "MARKER";
-        case GL_DEBUG_TYPE_OTHER: return "OTHER";
-        }
-    }();
-
-    auto const severity_str = [severity]() {
-        switch (severity) {
-        case GL_DEBUG_SEVERITY_NOTIFICATION: return "NOTIFICATION";
-        case GL_DEBUG_SEVERITY_LOW: return "LOW";
-        case GL_DEBUG_SEVERITY_MEDIUM: return "MEDIUM";
-        case GL_DEBUG_SEVERITY_HIGH: return "HIGH";
-        }
-    }();
-
-    std::cout << src_str << ", " << type_str << ", " << severity_str << ", "
-        << id << ": " << message << '\n';
 }

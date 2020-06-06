@@ -1,9 +1,10 @@
 #version 450 core
-out vec4 FragColor;
 
 in vec2 TexCoords;
 in vec3 FragPos;
 in vec3 Normal;
+
+out vec4 FragColor;
 
 struct DirectionalLight {
     vec3 direction;
@@ -12,8 +13,8 @@ struct DirectionalLight {
 };
 
 struct PointLight {
-    vec3 position;
-    vec3 color;
+    vec4 position;
+    vec4 color;
     float radius;
     float intensity;
 };
@@ -37,10 +38,15 @@ struct Material {
 
 #define MAX_LIGHTS 5
 
+
+layout (std140, binding = 2) uniform LightsUBO
+{
+    PointLight pointLights[MAX_LIGHTS];
+};
+
 uniform Material material;
 uniform vec3 viewPos;
 uniform int numPointLights;
-uniform PointLight pointLights[MAX_LIGHTS];
 uniform SpotLight spotLight;
 uniform DirectionalLight directLight;
 
@@ -55,17 +61,16 @@ void main()
     vec3 viewDir = normalize(viewPos - FragPos);
 
     int numLights = MAX_LIGHTS < numPointLights ? MAX_LIGHTS : numPointLights;
-    vec3 result = calcDirectLight(directLight, norm, FragPos, viewDir);
+    vec3 result = vec3(0.0);
     for (int i = 0; i < numLights; i++) {
         result += calcPointLight(pointLights[i], norm, FragPos, viewDir);
     }
-    result += calcSpotLight(spotLight, norm, FragPos, viewDir);
     FragColor = vec4(result, 1.0);
 }
 
 vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir) {
     // Normalize direction to light vector
-    vec3 d = light.position - fragPos;
+    vec3 d = light.position.xyz - fragPos;
     float r = length(d);
     vec3 lightDir = d / r;
 
@@ -78,7 +83,6 @@ vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir) {
     float diff = max(dot(normal, lightDir), 0.0);
     vec3 diffuse = diff * diffTex;
     // Specular shading
-    vec3 reflectDir = reflect(-lightDir, normal);
     vec3 halfwayDir = normalize(lightDir + viewDir);
     float spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
     vec3 specular = spec * specTex;
@@ -86,7 +90,7 @@ vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir) {
     float windowing = clamp(1 - pow(r / light.radius, 4.0), 0.0, 1.0);
     float attenuation = windowing * windowing / (r * r + 1.0);
 
-    vec3 radiance = light.intensity * light.color * attenuation;
+    vec3 radiance = light.intensity * light.color.xyz * attenuation;
     vec3 result = (ambient + diffuse + specular) * radiance;
     return result;
 }

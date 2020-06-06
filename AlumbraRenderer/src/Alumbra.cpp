@@ -21,9 +21,6 @@ int main()
     Scene scene;
     Renderer renderer(&scene);
 
-    bool wireframe = false;
-    bool useEnviro = false;
-
     while (!window.isClosed()) {
         // per-frame time logic
         // --------------------
@@ -35,36 +32,7 @@ int main()
 
         window.clear();
 
-        renderer.drawScene(useEnviro);
-
-#ifdef _DEBUG
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-
-        // Debug window
-        {
-            ImGui::Begin("Debug Settings");
-            ImGui::Checkbox("Wireframe", &wireframe);
-            ImGui::Checkbox("Environment Mapping", &useEnviro);
-            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-            ImGui::Text("Keyboard Controls:");
-            ImGui::Text("W/A/S/D - Forward/Left/Back/Right");
-            ImGui::Text("L_ALT/SPACE - Down/Up");
-            ImGui::Text("P - Show/Hide Mouse Pointer");
-            ImGui::Text("ESC - Exit Program");
-
-            ImGui::End();
-        }
-
-        if (wireframe)
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        else
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-#endif //!_DEBUG
+        renderer.beginDraw();
 
         window.update();
     }

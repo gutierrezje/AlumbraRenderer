@@ -14,17 +14,25 @@ public:
     ~Renderer();
 
     void init();
-    void drawScene(bool useEnviro = false);
+    void beginDraw();
+    void drawGUI();
 
 private:
     Scene* m_scene;
     Shader m_modelShader;
     Shader m_cubemapShader;
-    Shader m_enviroShader;
     Shader m_fbShader;
     Framebuffer m_fbo;
     unsigned int m_fbQuadVAO;
 };
+
+void messageCallback(GLenum source,
+    GLenum type,
+    GLuint id,
+    GLenum severity,
+    GLsizei length,
+    const GLchar* message,
+    const void* userParam);
 
 const float fbQuadPos[] = {  
     -1.0f,  1.0f, 0.0f,
