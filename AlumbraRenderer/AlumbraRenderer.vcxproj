@@ -202,6 +202,8 @@
     <None Include="src\shaders\environment.vert" />
     <None Include="src\shaders\framequad.frag" />
     <None Include="src\shaders\framequad.vert" />
+    <None Include="src\shaders\simpleDepthShader.frag" />
+    <None Include="src\shaders\simpleDepthShader.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

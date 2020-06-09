@@ -159,5 +159,7 @@
     <None Include="src\shaders\environment.frag" />
     <None Include="src\shaders\framequad.vert" />
     <None Include="src\shaders\framequad.frag" />
+    <None Include="src\shaders\simpleDepthShader.vert" />
+    <None Include="src\shaders\simpleDepthShader.frag" />
   </ItemGroup>
 </Project>

@@ -39,7 +39,6 @@ void Framebuffer::attachTexture() {
     glTextureParameteri(m_textureID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glNamedFramebufferTexture(m_framebufferID, GL_COLOR_ATTACHMENT0,
         m_textureID, 0);
-    //glGenerateTextureMipmap(m_textureID);
 }
 
 // Currently attaches a depth + stencil renderbuffer
