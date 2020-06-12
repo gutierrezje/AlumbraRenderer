@@ -22,11 +22,13 @@ private:
     Shader m_modelShader;
     Shader m_cubemapShader;
     Shader m_fbShader;
-    Shader m_depthShader;
+    Shader m_directDepthShader;
+    Shader m_pointDepthShader;
     Framebuffer m_fbo;
     unsigned int m_fbQuadVAO;
     GLuint m_depthMapFBO;
-    GLuint m_depthMap;
+    GLuint m_directionalDepthMap;
+    GLuint m_pointDepthMap;
 
     const unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
 };

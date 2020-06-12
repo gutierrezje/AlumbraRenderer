@@ -49,14 +49,26 @@ layout (std140, binding = 2) uniform LightsUBO
 uniform Material material;
 uniform vec3 viewPos;
 uniform int numPointLights;
+uniform float farPlane;
+uniform samplerCube pointDepthMap;
 uniform SpotLight spotLight;
 uniform DirectionalLight directLight;
-uniform sampler2D shadowMap;
+uniform sampler2D directionalDepthMap;
 
 vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
 vec3 calcDirectLight(DirectionalLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
 vec3 calcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
-float shadowCalculation(vec4 FragPosLightSpace, float bias);
+float calcDirectionalShadow(vec4 fragPosLightSpace, float bias);
+float calcPointShadow(vec3 fragPos, vec3 lightPos, float bias);
+
+vec3 sampleOffsetDirections[20] = vec3[]
+(
+   vec3( 1,  1,  1), vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1,  1,  1), 
+   vec3( 1,  1, -1), vec3( 1, -1, -1), vec3(-1, -1, -1), vec3(-1,  1, -1),
+   vec3( 1,  1,  0), vec3( 1, -1,  0), vec3(-1, -1,  0), vec3(-1,  1,  0),
+   vec3( 1,  0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1,  0, -1),
+   vec3( 0,  1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0,  1, -1)
+);  
 
 void main()
 {    
@@ -65,11 +77,11 @@ void main()
     vec3 viewDir = normalize(viewPos - fs_in.FragPos);
 
     int numLights = MAX_LIGHTS < numPointLights ? MAX_LIGHTS : numPointLights;
-    vec3 result = calcDirectLight(directLight, norm, fs_in.FragPos, viewDir);
+    vec3 result = vec3(0);//calcDirectLight(directLight, norm, fs_in.FragPos, viewDir);
     
-    //for (int i = 0; i < numLights; i++) {
-    //    result += calcPointLight(pointLights[i], norm, fs_in.FragPos, viewDir);
-    //}
+    for (int i = 0; i < numLights; i++) {
+        result += calcPointLight(pointLights[i], norm, fs_in.FragPos, viewDir);
+    }
     FragColor = vec4(result, 1.0);
 }
 
@@ -96,8 +108,26 @@ vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir) {
     float attenuation = windowing * windowing / (r * r + 1.0);
 
     vec3 radiance = light.intensity * light.color.xyz * attenuation;
-    vec3 result = (ambient + diffuse + specular) * radiance;
+    float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
+    float shadow = calcPointShadow(fragPos, light.position.xyz, bias);
+    vec3 result = (ambient + (1.0 - shadow) * (diffuse + specular)) * radiance;
     return result;
+}
+
+float calcPointShadow(vec3 fragPos, vec3 lightPos, float bias) {
+    vec3 fragToLight = fragPos - lightPos;
+    float currentDepth = length(fragToLight);
+    float viewDistance = length(viewPos - fragPos);
+    float discRadius = (1.0 + (viewDistance / farPlane)) / 25.0;
+    float shadow = 0.0;
+    int samples = 20;
+    for (int i = 0; i < samples; i++) {
+        float closestDepth = texture(pointDepthMap, fragToLight + sampleOffsetDirections[i] * discRadius).r;
+        closestDepth *= farPlane;
+        if (currentDepth - bias > closestDepth)
+            shadow += 1.0;
+    }
+    return shadow / float(samples);
 }
 
 vec3 calcDirectLight(DirectionalLight light, vec3 normal, vec3 fragPos, vec3 viewDir) {
@@ -114,23 +144,23 @@ vec3 calcDirectLight(DirectionalLight light, vec3 normal, vec3 fragPos, vec3 vie
 
     vec3 radiance = light.intensity * light.color;
     float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
-    float shadow = shadowCalculation(fs_in.FragPosLightSpace, bias);
+    float shadow = calcDirectionalShadow(fs_in.FragPosLightSpace, bias);
     vec3 result = (ambient + (1.0 - shadow) * (diffuse + specular)) * radiance;
     return result;
 }
 
-float shadowCalculation(vec4 fragPosLightSpace, float bias)
+float calcDirectionalShadow(vec4 fragPosLightSpace, float bias)
 {
     // Transorm from clip-space to NDC [-1,1]; needed for perspective proj, but not ortho
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
     projCoords = projCoords * 0.5 + 0.5;
-    float closestDepth = texture(shadowMap, projCoords.xy).r;
+    float closestDepth = texture(directionalDepthMap, projCoords.xy).r;
     float currentDepth = projCoords.z;
     float shadow = 0.0;
-    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+    vec2 texelSize = 1.0 / textureSize(directionalDepthMap, 0);
     for (int x = -1; x <= 1; ++x) {
         for (int y = -1; y <= 1; ++y) {
-            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+            float pcfDepth = texture(directionalDepthMap, projCoords.xy + vec2(x, y) * texelSize).r;
             shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
         }
     }

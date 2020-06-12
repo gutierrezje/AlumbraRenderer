@@ -2,12 +2,18 @@
 
 #include <unordered_map>
 
+using TypedShader = std::pair<GLenum, std::string>;
+
 class Shader
 {
 public:
     int ID;
 
-    Shader(const char* vertexPath, const char* fragmentPath);
+    Shader() = default;
+
+    void addShaders(const std::vector<std::string>& shaderFiles);
+    void compileProgram(const std::vector<TypedShader>& shaders);
+
     void use() const;
     unsigned int getUniformLocation(std::string name) const;
     void setBool(std::string name, bool value) const;

@@ -202,8 +202,11 @@
     <None Include="src\shaders\environment.vert" />
     <None Include="src\shaders\framequad.frag" />
     <None Include="src\shaders\framequad.vert" />
-    <None Include="src\shaders\simpleDepthShader.frag" />
-    <None Include="src\shaders\simpleDepthShader.vert" />
+    <None Include="src\shaders\directional_depth_map.frag" />
+    <None Include="src\shaders\directional_depth_map.vert" />
+    <None Include="src\shaders\point_depth_map.frag" />
+    <None Include="src\shaders\point_depth_map.geom" />
+    <None Include="src\shaders\point_depth_map.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

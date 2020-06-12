@@ -1,61 +1,68 @@
 #include "pch.h"
 #include "Shader.h"
 
-// constructor generates the shader on the fly
-// ------------------------------------------------------------------------
-Shader::Shader(const char* vertexPath, const char* fragmentPath)
+void Shader::addShaders(const std::vector<std::string>& shaderFiles)
 {
-    // 1. retrieve the vertex/fragment source code from filePath
-    std::string vertexCode;
-    std::string fragmentCode;
-    std::ifstream vShaderFile;
-    std::ifstream fShaderFile;
-    // ensure ifstream objects can throw exceptions:
-    vShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-    fShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-    try
-    {
-        // open files
-        vShaderFile.open(vertexPath);
-        fShaderFile.open(fragmentPath);
-        std::stringstream vShaderStream, fShaderStream;
-        // read file's buffer contents into streams
-        vShaderStream << vShaderFile.rdbuf();
-        fShaderStream << fShaderFile.rdbuf();
-        // close file handlers
-        vShaderFile.close();
-        fShaderFile.close();
-        // convert stream into string
-        vertexCode = vShaderStream.str();
-        fragmentCode = fShaderStream.str();
+    std::vector<TypedShader> typedShaders;
+    for (const auto& shaderFileName : shaderFiles) {
+        auto extLoc = shaderFileName.find_last_of('.');
+
+        if (extLoc == std::string::npos) {
+            std::cout << "No file extension found\n";
+            assert(0);
+        }
+
+        GLenum shaderType;
+        std::string ext = shaderFileName.substr(extLoc + 1);
+        if (ext == "vert")
+            shaderType = GL_VERTEX_SHADER;
+        else if (ext == "frag")
+            shaderType = GL_FRAGMENT_SHADER;
+        else if (ext == "geom")
+            shaderType = GL_GEOMETRY_SHADER;
+        else {
+            std::cout << "No valid shader type found.\n";
+            assert(0);
+        }
+
+        typedShaders.push_back(make_pair(shaderType, shaderFileName));
     }
-    catch (std::ifstream::failure e)
-    {
-        std::cout << "ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ" << std::endl;
-    }
-    const char* vShaderCode = vertexCode.c_str();
-    const char* fShaderCode = fragmentCode.c_str();
-    // 2. compile shaders
-    unsigned int vertex, fragment;
-    // vertex shader
-    vertex = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertex, 1, &vShaderCode, NULL);
-    glCompileShader(vertex);
-    checkCompileErrors(vertex, "VERTEX");
-    // fragment Shader
-    fragment = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragment, 1, &fShaderCode, NULL);
-    glCompileShader(fragment);
-    checkCompileErrors(fragment, "FRAGMENT");
-    // shader Program
+
+    compileProgram(typedShaders);
+}
+
+void Shader::compileProgram(const std::vector<TypedShader>& shaders)
+{
     ID = glCreateProgram();
-    glAttachShader(ID, vertex);
-    glAttachShader(ID, fragment);
+    for (const auto& shader : shaders) {
+        // Read in the shader source
+        std::string shaderCode;
+        std::ifstream shaderFile;
+        shaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+        try {
+            shaderFile.open(shader.second);
+            std::stringstream shaderStream;
+            shaderStream << shaderFile.rdbuf();
+            shaderFile.close();
+            shaderCode = shaderStream.str();
+        }
+        catch (std::ifstream::failure e) {
+            std::cout << "ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ\n";
+        }
+
+        // Compile shader source and attach to program
+        auto shaderCodeString = shaderCode.c_str();
+        GLuint shaderID = glCreateShader(shader.first);
+        glShaderSource(shaderID, 1, &shaderCodeString, NULL);
+        glCompileShader(shaderID);
+        checkCompileErrors(shaderID, "SHADER");
+        glAttachShader(ID, shaderID);
+        glDeleteShader(shaderID);
+    }
+
+    // Finally link the program
     glLinkProgram(ID);
     checkCompileErrors(ID, "PROGRAM");
-    // delete the shaders as they're linked into our program now and no longer necessery
-    glDeleteShader(vertex);
-    glDeleteShader(fragment);
 }
 
 // activate the shader
