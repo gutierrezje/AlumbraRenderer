@@ -50,16 +50,17 @@ uniform Material material;
 uniform vec3 viewPos;
 uniform int numPointLights;
 uniform float farPlane;
-uniform samplerCube pointDepthMap;
-uniform SpotLight spotLight;
+// Currently this has to match exactly how many point lights there are in the scene to work
+uniform samplerCube pointDepthMaps[2];
 uniform DirectionalLight directLight;
 uniform sampler2D directionalDepthMap;
+uniform SpotLight spotLight;
 
-vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
+vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, int lightIndex);
+float calcPointShadow(vec3 fragPos, vec3 lightPos, float bias, int lightIndex);
 vec3 calcDirectLight(DirectionalLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
-vec3 calcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
 float calcDirectionalShadow(vec4 fragPosLightSpace, float bias);
-float calcPointShadow(vec3 fragPos, vec3 lightPos, float bias);
+vec3 calcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
 
 vec3 sampleOffsetDirections[20] = vec3[]
 (
@@ -77,15 +78,15 @@ void main()
     vec3 viewDir = normalize(viewPos - fs_in.FragPos);
 
     int numLights = MAX_LIGHTS < numPointLights ? MAX_LIGHTS : numPointLights;
-    vec3 result = vec3(0);//calcDirectLight(directLight, norm, fs_in.FragPos, viewDir);
+    vec3 result = calcDirectLight(directLight, norm, fs_in.FragPos, viewDir);
     
     for (int i = 0; i < numLights; i++) {
-        result += calcPointLight(pointLights[i], norm, fs_in.FragPos, viewDir);
+        result += calcPointLight(pointLights[i], norm, fs_in.FragPos, viewDir, i);
     }
     FragColor = vec4(result, 1.0);
 }
 
-vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir) {
+vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, int lightIndex) {
     // Normalize direction to light vector
     vec3 d = light.position.xyz - fragPos;
     float r = length(d);
@@ -109,12 +110,12 @@ vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir) {
 
     vec3 radiance = light.intensity * light.color.xyz * attenuation;
     float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
-    float shadow = calcPointShadow(fragPos, light.position.xyz, bias);
+    float shadow = calcPointShadow(fragPos, light.position.xyz, bias, lightIndex);
     vec3 result = (ambient + (1.0 - shadow) * (diffuse + specular)) * radiance;
     return result;
 }
 
-float calcPointShadow(vec3 fragPos, vec3 lightPos, float bias) {
+float calcPointShadow(vec3 fragPos, vec3 lightPos, float bias, int lightIndex) {
     vec3 fragToLight = fragPos - lightPos;
     float currentDepth = length(fragToLight);
     float viewDistance = length(viewPos - fragPos);
@@ -122,7 +123,7 @@ float calcPointShadow(vec3 fragPos, vec3 lightPos, float bias) {
     float shadow = 0.0;
     int samples = 20;
     for (int i = 0; i < samples; i++) {
-        float closestDepth = texture(pointDepthMap, fragToLight + sampleOffsetDirections[i] * discRadius).r;
+        float closestDepth = texture(pointDepthMaps[lightIndex], fragToLight + sampleOffsetDirections[i] * discRadius).r;
         closestDepth *= farPlane;
         if (currentDepth - bias > closestDepth)
             shadow += 1.0;

@@ -14,21 +14,23 @@ public:
     ~Renderer();
 
     void init();
+    unsigned int setupUBOs();
     void beginDraw();
     void drawGUI();
 
 private:
     Scene* m_scene;
     Shader m_modelShader;
-    Shader m_cubemapShader;
+    Shader m_environmentShader;
     Shader m_fbShader;
     Shader m_directDepthShader;
     Shader m_pointDepthShader;
     Framebuffer m_fbo;
-    unsigned int m_fbQuadVAO;
-    GLuint m_depthMapFBO;
+    GLuint m_fbQuadVAO;
+    GLuint m_directionalDepthFBO;
     GLuint m_directionalDepthMap;
-    GLuint m_pointDepthMap;
+    std::vector<GLuint> m_pointDepthFBOs;
+    std::vector<GLuint> m_pointDepthMaps;
 
     const unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
 };
