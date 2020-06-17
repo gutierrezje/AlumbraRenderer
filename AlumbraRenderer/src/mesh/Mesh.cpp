@@ -66,7 +66,7 @@ void Mesh::setupMesh()
 {
     
     auto bufferSize = sizeof(unsigned int) * m_indices.size()
-        + sizeof(m_positions[0]) * (m_positions.size() + m_normals.size() + m_tangents.size() + m_bitangents.size())
+        + sizeof(m_positions[0]) * (m_positions.size() + m_normals.size() + m_tangents.size())
         + sizeof(m_texCoords[0]) * m_texCoords.size();
     DataBuffer buffer(bufferSize, m_positions.size(), 4, m_indices.size());
     buffer.addIndices(m_indices.data());
@@ -74,7 +74,6 @@ void Mesh::setupMesh()
     buffer.addVec3s(m_normals.data());
     buffer.addVec2s(m_texCoords.data());
     buffer.addVec3s(m_tangents.data());
-    //buffer.addVec3s(m_bitangents.data());
     VertexArray vao;
     vao.loadBuffer(buffer, 2);
     m_meshVAO = vao.vertexArrayID();
