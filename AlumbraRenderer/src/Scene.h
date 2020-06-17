@@ -34,7 +34,6 @@ public:
     Scene();
     ~Scene();
 
-    void init();
     inline DirectionalLight& directionalLight() { return m_dLight; }
     inline std::vector<PointLight>& pointLights() { return m_pLights; }
     inline std::vector<Model*>& models() { return m_models; }

@@ -22,7 +22,8 @@ void Model::draw(Shader shader) {
 void Model::loadModel(const std::string& path) {
     // read the file via ASSIMP
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
+    const aiScene* scene = importer.ReadFile(path, 
+        aiProcess_Triangulate | aiProcess_FlipUVs |aiProcess_CalcTangentSpace);
 
     // check for errors
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
@@ -53,23 +54,23 @@ void Model::processNode(aiNode* node, const aiScene* scene) {
 
 Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
     // data to fill
-    std::vector<float> positions;
-    std::vector<float> normals;
-    std::vector<float> texCoords;
+    std::vector<glm::vec3> positions;
+    std::vector<glm::vec3> normals;
+    std::vector<glm::vec2> texCoords;
+    std::vector<glm::vec3> tangents;
     std::vector<unsigned int> indices;
     std::vector<MeshTexture> textures;
 
     // walk through each of the mesh's vertices
+    positions.reserve(mesh->mNumVertices);
+    normals.reserve(mesh->mNumVertices);
+    textures.reserve(mesh->mNumVertices);
     for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
-        positions.push_back(mesh->mVertices[i].x);
-        positions.push_back(mesh->mVertices[i].y);
-        positions.push_back(mesh->mVertices[i].z);
-        normals.push_back(mesh->mNormals[i].x);
-        normals.push_back(mesh->mNormals[i].y);
-        normals.push_back(mesh->mNormals[i].z);
+        positions.emplace_back(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
+        normals.emplace_back(mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z);
+        tangents.emplace_back(mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z);
         if (mesh->mTextureCoords[0]) {
-            texCoords.push_back(mesh->mTextureCoords[0][i].x);
-            texCoords.push_back(mesh->mTextureCoords[0][i].y);
+            texCoords.emplace_back(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y);
         }
     }
     // now walk through each of the mesh's faces and retrieve the corresponding vertex indices
@@ -89,10 +90,13 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
         std::vector<MeshTexture> specularMaps = loadMaterialTextures(material,
             aiTextureType_SPECULAR, "texture_specular");
         textures.insert(textures.end(), specularMaps.begin(), specularMaps.end());
+        std::vector<MeshTexture> normalMaps = loadMaterialTextures(material,
+            aiTextureType_HEIGHT, "texture_normal");
+        textures.insert(textures.end(), normalMaps.begin(), normalMaps.end());
     }
 
     // return a mesh object created from the extracted mesh data
-    return Mesh(positions, normals, texCoords, indices, textures);
+    return Mesh(positions, normals, texCoords, tangents, indices, textures);
 }
 
 /* Checks all material textures of a given type and loads the textures if they're not loaded yet.

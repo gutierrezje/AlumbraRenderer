@@ -72,78 +72,78 @@ void Shader::use() const
     glUseProgram(ID);
 }
 
-unsigned int Shader::getUniformLocation(std::string name) const
+unsigned int Shader::getUniformLocation(const std::string& name) const
 {
     auto keyval = m_uniformLocationCache.find(name);
     if (keyval != m_uniformLocationCache.end())
         return keyval->second;
 
-    unsigned int location = glGetUniformLocation(ID, name.c_str());
+    auto location = glGetUniformLocation(ID, name.c_str());
     auto ret = m_uniformLocationCache.insert(std::pair<std::string, unsigned int>(name, location));
     return ret.first->second;
 }
 
 // utility uniform functions
     // ------------------------------------------------------------------------
-void Shader::setBool(std::string name, bool value) const
+void Shader::setBool(const std::string& name, bool value) const
 {
     glUniform1i(getUniformLocation(name), (int)value);
 }
 
 // ------------------------------------------------------------------------
-void Shader::setInt(std::string name, int value) const
+void Shader::setInt(const std::string& name, int value) const
 {
     glUniform1i(getUniformLocation(name), value);
 }
 // ------------------------------------------------------------------------
-void Shader::setFloat(std::string name, float value) const
+void Shader::setFloat(const std::string& name, float value) const
 {
     glUniform1f(getUniformLocation(name), value);
 }
 // ------------------------------------------------------------------------
-void Shader::setSampler(std::string name, int sampler) const
+void Shader::setSampler(const std::string& name, int sampler) const
 {
     glProgramUniform1i(ID, getUniformLocation(name), sampler);
 }
 // ------------------------------------------------------------------------
-void Shader::setVec2(std::string name, const glm::vec2& value) const
+void Shader::setVec2(const std::string& name, const glm::vec2& value) const
 {
     glUniform2fv(getUniformLocation(name), 1, &value[0]);
 }
-void Shader::setVec2(std::string name, float x, float y) const
+void Shader::setVec2(const std::string& name, float x, float y) const
 {
     glUniform2f(getUniformLocation(name), x, y);
 }
 // ------------------------------------------------------------------------
-void Shader::setVec3(std::string name, const glm::vec3& value) const
+void Shader::setVec3(const std::string& name, const glm::vec3& value) const
 {
     glUniform3fv(getUniformLocation(name), 1, &value[0]);
 }
-void Shader::setVec3(std::string name, float x, float y, float z) const
+void Shader::setVec3(const std::string& name, float x, float y, float z) const
 {
     glUniform3f(getUniformLocation(name), x, y, z);
 }
 // ------------------------------------------------------------------------
-void Shader::setVec4(std::string name, const glm::vec4& value) const
+void Shader::setVec4(const std::string& name, const glm::vec4& value) const
 {
     glUniform4fv(getUniformLocation(name), 1, &value[0]);
 }
-void Shader::setVec4(std::string name, float x, float y, float z, float w) const
+void Shader::setVec4(const std::string& name, float x, float y, float z, float w) const
 {
     glUniform4f(getUniformLocation(name), x, y, z, w);
 }
 // ------------------------------------------------------------------------
-void Shader::setMat2(std::string name, const glm::mat2& mat) const
+void Shader::setMat2(const std::string& name, const glm::mat2& mat) const
 {
     glUniformMatrix2fv(getUniformLocation(name), 1, GL_FALSE, &mat[0][0]);
 }
 // ------------------------------------------------------------------------
-void Shader::setMat3(std::string name, const glm::mat3& mat) const
+void Shader::setMat3(const std::string& name, const glm::mat3& mat) const
 {
     glUniformMatrix3fv(getUniformLocation(name), 1, GL_FALSE, &mat[0][0]);
 }
 // ------------------------------------------------------------------------
-void Shader::setMat4(std::string name, const glm::mat4& mat) const
+void Shader::setMat4(const std::string& name, const glm::mat4& mat) const
 {
     glUniformMatrix4fv(getUniformLocation(name), 1, GL_FALSE, &mat[0][0]);
 }

@@ -3,8 +3,11 @@
 in VS_OUT {
     vec2 TexCoords;
     vec3 FragPos;
-    vec3 Normal;
     vec4 FragPosLightSpace;
+    vec3 Normal;
+    mat3 TBN;
+    vec3 TangentViewPos;
+    vec3 TangentFragPos;
 } fs_in;
 
 out vec4 FragColor;
@@ -36,6 +39,7 @@ struct SpotLight {
 struct Material {
 	sampler2D texture_diffuse1;
     sampler2D texture_specular1;
+    sampler2D texture_normal1;
     float shininess;
 };
 
@@ -47,18 +51,19 @@ layout (std140, binding = 2) uniform LightsUBO
 };
 
 uniform Material material;
-uniform vec3 viewPos;
 uniform int numPointLights;
 uniform float farPlane;
+uniform bool useNormalMap;
+uniform vec3 viewPos;
 // Currently this has to match exactly how many point lights there are in the scene to work
 uniform samplerCube pointDepthMaps[2];
 uniform DirectionalLight directLight;
 uniform sampler2D directionalDepthMap;
 uniform SpotLight spotLight;
 
-vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, int lightIndex);
+vec3 calcPointLight(PointLight light, vec3 lightPos, vec3 normal, vec3 fragPos, vec3 viewDir, int lightIndex);
 float calcPointShadow(vec3 fragPos, vec3 lightPos, float bias, int lightIndex);
-vec3 calcDirectLight(DirectionalLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
+vec3 calcDirectLight(DirectionalLight light, vec3 lightPos, vec3 normal, vec3 fragPos, vec3 viewDir);
 float calcDirectionalShadow(vec4 fragPosLightSpace, float bias);
 vec3 calcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
 
@@ -74,21 +79,42 @@ vec3 sampleOffsetDirections[20] = vec3[]
 void main()
 {    
     // Properties
-    vec3 norm = normalize(fs_in.Normal);
-    vec3 viewDir = normalize(viewPos - fs_in.FragPos);
+    vec3 norm;
+    vec3 viewDir;
+    vec3 fragPos;
+    vec3 lightPos;
 
-    int numLights = MAX_LIGHTS < numPointLights ? MAX_LIGHTS : numPointLights;
-    vec3 result = calcDirectLight(directLight, norm, fs_in.FragPos, viewDir);
+    if (useNormalMap) {
+        norm = texture(material.texture_normal1, fs_in.TexCoords).rgb;
+        norm = normalize(norm * 2.0 - 1.0);
+        viewDir = normalize(fs_in.TangentViewPos - fs_in.TangentFragPos);
+        fragPos = fs_in.TangentFragPos;
+        lightPos = fs_in.TBN * -directLight.direction;
+    }
+    else {
+        norm = normalize(fs_in.Normal);
+        viewDir = normalize(viewPos - fs_in.FragPos);
+        fragPos = fs_in.FragPos;
+        lightPos = -directLight.direction;
+    }
+
+    vec3 result = calcDirectLight(directLight, lightPos, norm, fragPos, viewDir);
     
+    int numLights = MAX_LIGHTS < numPointLights ? MAX_LIGHTS : numPointLights;
     for (int i = 0; i < numLights; i++) {
-        result += calcPointLight(pointLights[i], norm, fs_in.FragPos, viewDir, i);
+        if (useNormalMap) 
+            lightPos = fs_in.TBN * pointLights[i].position.xyz;
+        else 
+            lightPos = pointLights[i].position.xyz;
+        
+        result += calcPointLight(pointLights[i], lightPos, norm, fragPos, viewDir, i);
     }
     FragColor = vec4(result, 1.0);
 }
 
-vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, int lightIndex) {
+vec3 calcPointLight(PointLight light, vec3 lightPos, vec3 normal, vec3 fragPos, vec3 viewDir, int lightIndex) {
     // Normalize direction to light vector
-    vec3 d = light.position.xyz - fragPos;
+    vec3 d = lightPos - fragPos;
     float r = length(d);
     vec3 lightDir = d / r;
 
@@ -110,7 +136,7 @@ vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, i
 
     vec3 radiance = light.intensity * light.color.xyz * attenuation;
     float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
-    float shadow = calcPointShadow(fragPos, light.position.xyz, bias, lightIndex);
+    float shadow = calcPointShadow(fragPos, lightPos, bias, lightIndex);
     vec3 result = (ambient + (1.0 - shadow) * (diffuse + specular)) * radiance;
     return result;
 }
@@ -131,8 +157,8 @@ float calcPointShadow(vec3 fragPos, vec3 lightPos, float bias, int lightIndex) {
     return shadow / float(samples);
 }
 
-vec3 calcDirectLight(DirectionalLight light, vec3 normal, vec3 fragPos, vec3 viewDir) {
-    vec3 lightDir = normalize(-light.direction);
+vec3 calcDirectLight(DirectionalLight light, vec3 lightPos, vec3 normal, vec3 fragPos, vec3 viewDir) {
+    vec3 lightDir = normalize(lightPos);
 
     vec3 diffTex = texture(material.texture_diffuse1, fs_in.TexCoords).rgb;
     vec3 specTex = texture(material.texture_specular1, fs_in.TexCoords).rgb;

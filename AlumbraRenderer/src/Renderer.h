@@ -13,12 +13,12 @@ public:
     Renderer(Scene* sceneView);
     ~Renderer();
 
-    void init();
-    unsigned int setupUBOs();
     void beginDraw();
     void drawGUI();
 
 private:
+    const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+
     Scene* m_scene;
     Shader m_modelShader;
     Shader m_environmentShader;
@@ -32,7 +32,9 @@ private:
     std::vector<GLuint> m_pointDepthFBOs;
     std::vector<GLuint> m_pointDepthMaps;
 
-    const unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
+    void setupShaders();
+    void setupFramebuffers();
+    void setupUBOs();
 };
 
 void messageCallback(GLenum source,
@@ -43,32 +45,32 @@ void messageCallback(GLenum source,
     const GLchar* message,
     const void* userParam);
 
-const float fbQuadPos[] = {  
-    -1.0f,  1.0f, 0.0f,
-    -1.0f, -1.0f, 0.0f,
-     1.0f, -1.0f, 0.0f,  
-  
-    -1.0f,  1.0f, 0.0f,
-     1.0f, -1.0f, 0.0f,
-     1.0f,  1.0f, 0.0f
+const std::vector<glm::vec3> fbQuadPos{  
+    glm::vec3(-1.0f,  1.0f, 0.0f),
+    glm::vec3(-1.0f, -1.0f, 0.0f),
+    glm::vec3( 1.0f, -1.0f, 0.0f),  
+
+    glm::vec3(-1.0f,  1.0f, 0.0f),
+    glm::vec3( 1.0f, -1.0f, 0.0f),
+    glm::vec3( 1.0f,  1.0f, 0.0f)
 };
 
-const float fbQuadNorm[]{
-    0.0f, 0.0f, 0.0f,
-    0.0f, 1.0f, 0.0f,
-    1.0f, 0.0f, 0.0f,
-                
-    1.0f, 0.0f, 0.0f,
-    0.0f, 1.0f, 0.0f,
-    1.0f, 1.0f, 0.0f
+const std::vector<glm::vec3> fbQuadNorm{
+    glm::vec3(0.0f, 0.0f, 0.0f),
+    glm::vec3(0.0f, 1.0f, 0.0f),
+    glm::vec3(1.0f, 0.0f, 0.0f),
+
+    glm::vec3(1.0f, 0.0f, 0.0f),
+    glm::vec3(0.0f, 1.0f, 0.0f),
+    glm::vec3(1.0f, 1.0f, 0.0f)
 };
 
-const float fbQuadTex[]{
-    0.0f, 1.0f,
-    0.0f, 0.0f,
-    1.0f, 0.0f,
-               
-    0.0f, 1.0f,
-    1.0f, 0.0f,
-    1.0f, 1.0f,
+const std::vector<glm::vec2> fbQuadTex{
+    glm::vec2(0.0f, 1.0f),
+    glm::vec2(0.0f, 0.0f),
+    glm::vec2(1.0f, 0.0f),
+
+    glm::vec2(0.0f, 1.0f),
+    glm::vec2(1.0f, 0.0f),
+    glm::vec2(1.0f, 1.0f),
 };

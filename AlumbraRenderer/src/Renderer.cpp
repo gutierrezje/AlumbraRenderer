@@ -10,6 +10,10 @@ Renderer::Renderer(Scene* scene)
     , m_pointDepthFBOs(scene->pointLights().size(), 0)
     , m_pointDepthMaps(scene->pointLights().size(), 0)
 {
+    glDepthFunc(GL_LESS);
+    glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CCW);
+
 #ifdef _DEBUG
     // Enable auto debugging
     glEnable(GL_DEBUG_OUTPUT);
@@ -19,34 +23,29 @@ Renderer::Renderer(Scene* scene)
         0, nullptr, GL_FALSE);
 #endif // _DEBUG
 
-    m_modelShader.addShaders({"src/shaders/basic.vert", "src/shaders/basic.frag"});
-    m_environmentShader.addShaders({"src/shaders/cubemap.vert", "src/shaders/cubemap.frag"});
-    m_fbShader.addShaders({"src/shaders/framequad.vert", "src/shaders/framequad.frag"});
-    m_directDepthShader.addShaders({
-        "src/shaders/directional_depth_map.vert",
-        "src/shaders/directional_depth_map.frag"});
-    m_pointDepthShader.addShaders({
-        "src/shaders/point_depth_map.vert",
-        "src/shaders/point_depth_map.geom",
-        "src/shaders/point_depth_map.frag"});
-    init();
+    setupShaders();
+    setupFramebuffers();
+    setupUBOs();
 }
 
 Renderer::~Renderer() {}
 
-void Renderer::init()
+void Renderer::setupShaders()
 {
-    glDepthFunc(GL_LESS);
-    glFrontFace(GL_CCW);
+    m_modelShader.addShaders({ "src/shaders/basic.vert", "src/shaders/basic.frag" });
+    m_environmentShader.addShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap.frag" });
+    m_fbShader.addShaders({ "src/shaders/framequad.vert", "src/shaders/framequad.frag" });
+    m_directDepthShader.addShaders({
+        "src/shaders/directional_depth_map.vert",
+        "src/shaders/directional_depth_map.frag" });
+    m_pointDepthShader.addShaders({
+        "src/shaders/point_depth_map.vert",
+        "src/shaders/point_depth_map.geom",
+        "src/shaders/point_depth_map.frag" });
+}
 
-    // Setting up lights UBO
-    auto& lights = m_scene->pointLights();
-    GLuint lightsUBO;
-    glCreateBuffers(1, &lightsUBO);
-    glNamedBufferStorage(lightsUBO, lights.size() * sizeof(struct PointLight), nullptr, GL_DYNAMIC_STORAGE_BIT);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 2, lightsUBO);
-    glNamedBufferSubData(lightsUBO, 0, lights.size() * sizeof(struct PointLight), lights.data());    
-
+void Renderer::setupFramebuffers()
+{
     // Setup shadow map + framebuffer
     glCreateTextures(GL_TEXTURE_2D, 1, &m_directionalDepthMap);
     glTextureStorage2D(m_directionalDepthMap, 1, GL_DEPTH_COMPONENT24, SHADOW_WIDTH, SHADOW_HEIGHT);
@@ -65,7 +64,7 @@ void Renderer::init()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     m_modelShader.use();
-    m_modelShader.setSampler("directionalDepthMap", 2);
+    m_modelShader.setSampler("directionalDepthMap", 3);
 
     // Setup shadow cubemap
     // TODO: Setup a separate framebuffer for point lights (per light?)
@@ -84,28 +83,15 @@ void Renderer::init()
         glDrawBuffer(GL_NONE);
         glReadBuffer(GL_NONE);
 
-        m_modelShader.setSampler("pointDepthMaps[" + std::to_string(i) + "]", 3 + i);
+        m_modelShader.setSampler("pointDepthMaps[" + std::to_string(i) + "]", 4 + i);
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    //glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &m_pointDepthMap);
-    //glTextureStorage2D(m_pointDepthMap, 1, GL_DEPTH_COMPONENT24, SHADOW_WIDTH, SHADOW_HEIGHT);
-    //glTextureParameteri(m_pointDepthMap, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    //glTextureParameteri(m_pointDepthMap, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    //glTextureParameteri(m_pointDepthMap, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    //glTextureParameteri(m_pointDepthMap, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    //glTextureParameteri(m_pointDepthMap, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    //glBindFramebuffer(GL_FRAMEBUFFER, m_depthMapFBO);
-    //glNamedFramebufferTexture(m_directionalDepthFBO, GL_DEPTH_ATTACHMENT, m_pointDepthMap, 0);
-    //glDrawBuffer(GL_NONE);
-    //glReadBuffer(GL_NONE);
-    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    // Setting up a quad to render to
-    int size = sizeof(fbQuadPos) + sizeof(fbQuadTex);
+    // Setting up a quad to render to if needed
+    int size = sizeof(fbQuadPos[0]) * fbQuadPos.size() + sizeof(fbQuadTex[0])  * fbQuadTex.size();
     DataBuffer vbo(size, 6, 2);
-    vbo.addData(fbQuadPos, 3);
-    vbo.addData(fbQuadTex, 2);
+    vbo.addVec3s(fbQuadPos.data());
+    vbo.addVec2s(fbQuadTex.data());
     VertexArray vao;
     vao.loadBuffer(vbo, 1);
     m_fbQuadVAO = vao.vertexArrayID();
@@ -113,17 +99,29 @@ void Renderer::init()
     m_fbShader.setSampler("screenTexture", 0);
 }
 
+void Renderer::setupUBOs()
+{
+    // Setting up lights UBO
+    auto& lights = m_scene->pointLights();
+    GLuint lightsUBO;
+    glCreateBuffers(1, &lightsUBO);
+    glNamedBufferStorage(lightsUBO, lights.size() * sizeof(struct PointLight), nullptr, GL_DYNAMIC_STORAGE_BIT);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 2, lightsUBO);
+    glNamedBufferSubData(lightsUBO, 0, lights.size() * sizeof(struct PointLight), lights.data());
+}
+
 void Renderer::beginDraw()
 {
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_FRAMEBUFFER_SRGB);
+    //glCullFace(GL_FRONT);
 
     // Directional light depth pass
     glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
     glBindFramebuffer(GL_FRAMEBUFFER, m_directionalDepthFBO);
     glClear(GL_DEPTH_BUFFER_BIT);
 
-    auto& directLight = m_scene->directionalLight();
+    const auto& directLight = m_scene->directionalLight();
     
     float nearPlane = 1.0f, farPlane = 7.5f;
     glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, nearPlane, farPlane);
@@ -151,7 +149,7 @@ void Renderer::beginDraw()
     float near = 1.0f, far = 25.0f;
     float aspect = (float)SHADOW_WIDTH / (float)SHADOW_HEIGHT;
     glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), aspect, near, far);
-    auto& lights = m_scene->pointLights();
+    const auto& lights = m_scene->pointLights();
     m_pointDepthShader.use();
     m_pointDepthShader.setFloat("farPlane", far);
     auto lightIndex = 0;
@@ -160,19 +158,20 @@ void Renderer::beginDraw()
         glClear(GL_DEPTH_BUFFER_BIT);
         auto lightPos = light.position.xyz();
         std::vector<glm::mat4> shadowTransforms;
+        shadowTransforms.reserve(6);
         // TODO: If scene remains static this can be moved out of draw function
         // Possibly move point lights to be completely GPU managed. SSBOs?
-        shadowTransforms.push_back(shadowProj *
+        shadowTransforms.emplace_back(shadowProj *
             glm::lookAt(lightPos, lightPos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
-        shadowTransforms.push_back(shadowProj *
+        shadowTransforms.emplace_back(shadowProj *
             glm::lookAt(lightPos, lightPos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
-        shadowTransforms.push_back(shadowProj *
+        shadowTransforms.emplace_back(shadowProj *
             glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0)));
-        shadowTransforms.push_back(shadowProj *
+        shadowTransforms.emplace_back(shadowProj *
             glm::lookAt(lightPos, lightPos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, -1.0)));
-        shadowTransforms.push_back(shadowProj *
+        shadowTransforms.emplace_back(shadowProj *
             glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0)));
-        shadowTransforms.push_back(shadowProj *
+        shadowTransforms.emplace_back(shadowProj *
             glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0)));
 
         m_pointDepthShader.setVec3("lightPos", lightPos);
@@ -188,30 +187,14 @@ void Renderer::beginDraw()
             models[i]->draw(m_pointDepthShader);
         }
     }
-    
-    // Draw depth map to a quad
-    /*
-    glDisable(GL_DEPTH_TEST);
-    glCullFace(GL_BACK);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    m_fbShader.use();
-    m_fbShader.setFloat("nearPlane", nearPlane);
-    m_fbShader.setFloat("farPlane", farPlane);
-    glBindVertexArray(m_fbQuadVAO);
-    glBindTextureUnit(0, m_depthMap);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    //*/
 
     // Forward pass
-    ///*
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glEnable(GL_FRAMEBUFFER_SRGB);
     glViewport(0, 0, Window::width(), Window::height());
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
+    
+    //glCullFace(GL_BACK);
     m_modelShader.use();
 
     // Lighting
@@ -221,11 +204,12 @@ void Renderer::beginDraw()
     m_modelShader.setInt("numPointLights", lights.size());
     
     m_modelShader.setVec3("viewPos", g_camera.position());
+    m_modelShader.setVec3("viewPosV", g_camera.position());
     m_modelShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
     m_modelShader.setFloat("farPlane", far);
-    glBindTextureUnit(2, m_directionalDepthMap);
+    glBindTextureUnit(3, m_directionalDepthMap);
     for (int i = 0; i < m_pointDepthMaps.size(); i++) {
-        glBindTextureUnit(3 + i, m_pointDepthMaps[i]);
+        glBindTextureUnit(4 + i, m_pointDepthMaps[i]);
     }
 
     glm::mat4 projectionM = glm::perspective(glm::radians(g_camera.zoom()),
@@ -251,9 +235,8 @@ void Renderer::beginDraw()
     m_environmentShader.setMat4("projection", projectionM);
     m_environmentShader.setMat4("view", cmView);
     m_scene->cubemap().draw(m_environmentShader);
-    //*/
-    drawGUI();
     
+    drawGUI();
 }
 
 void Renderer::drawGUI()

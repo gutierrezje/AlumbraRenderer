@@ -11,8 +11,8 @@ Cubemap::Cubemap()
     glTextureParameteri(m_cubemapID, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTextureParameteri(m_cubemapID, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
-    DataBuffer buffer(sizeof(cubemapVertices), 36, 1);
-    buffer.addData(cubemapVertices, 3);
+    DataBuffer buffer(sizeof(cubemapVertices[0]) * cubemapVertices.size(), 36, 1);
+    buffer.addVec3s(cubemapVertices.data());
 
     VertexArray vao;
     vao.loadBuffer(buffer, -1);

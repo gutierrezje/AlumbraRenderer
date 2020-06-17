@@ -5,27 +5,16 @@ Scene::Scene()
     : m_cubemap(Cubemap())
     , m_dLight(DirectionalLight{ glm::vec3(2.0f, -4.0f, 1.0f), glm::vec3(1.0f), 0.0f })
 {
-    init();
-}
-
-Scene::~Scene() {
-    for (auto& model : m_models)
-        delete model;
-    m_models.clear();
-}
-
-void Scene::init()
-{
     m_models.push_back(new Model("res/models/nanosuit/nanosuit.obj"));
     m_transforms.push_back(Transform{ glm::vec3(0.0f), glm::vec3(0.2f), glm::vec3(0.0f, -0.5f, 0.0f) });
     m_models.push_back(new Model(Cube("res/textures/red.jpg")));
-    m_transforms.push_back(Transform{ glm::vec3(0.0f), glm::vec3(0.2f), glm::vec3(-2.0f, 0.0f, -2.0f) });
+    m_transforms.push_back(Transform{ glm::vec3(0.0f), glm::vec3(0.2f), glm::vec3(-2.0f, 0.15f, -2.0f) });
     m_models.push_back(new Model(Cube("res/textures/white.jpg")));
-    m_transforms.push_back(Transform{ glm::vec3(0.0f), glm::vec3(0.2f), glm::vec3(2.0f, 0.0f, -2.0f) });
-    m_models.push_back(new Model(Cube("res/textures/red.jpg")));
-    m_transforms.push_back(Transform{ glm::vec3(0.0f), glm::vec3(0.2f), glm::vec3(2.0f, 0.0f, 2.0f) });
+    m_transforms.push_back(Transform{ glm::vec3(0.0f), glm::vec3(0.2f), glm::vec3(2.0f, 0.15f, -2.0f) });
+    m_models.push_back(new Model(Cube("res/textures/brickwall.jpg")));// , "", "res/textures/brickwall_normal.jpg")));
+    m_transforms.push_back(Transform{ glm::vec3(0.0f), glm::vec3(0.75f), glm::vec3(2.0f, 0.5f, 2.0f) });
     m_models.push_back(new Model(Cube("res/textures/green.jpg")));
-    m_transforms.push_back(Transform{ glm::vec3(0.0f), glm::vec3(0.2f), glm::vec3(-2.0f, 0.0f, 2.0f) });
+    m_transforms.push_back(Transform{ glm::vec3(0.0f), glm::vec3(0.2f), glm::vec3(-2.0f, 0.15f, 2.0f) });
     m_models.push_back(new Model(Quad("res/textures/metal.png")));
     m_transforms.push_back(Transform{ glm::vec3(0.0f), glm::vec3(2.0f, 1.0f, 2.0f), glm::vec3(0.0f, 0.4f, 0.0f) });
 
@@ -45,4 +34,10 @@ void Scene::init()
         "res/cubemaps/mountainlake/back.jpg"
     };
     m_cubemap.loadMap(faces);
+}
+
+Scene::~Scene() {
+    for (auto& model : m_models)
+        delete model;
+    m_models.clear();
 }

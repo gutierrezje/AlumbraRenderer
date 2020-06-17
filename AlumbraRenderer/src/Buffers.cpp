@@ -25,9 +25,17 @@ void DataBuffer::addIndices(const unsigned int* idcs)
     m_indexEnd = dataSize;
 }
 
-void DataBuffer::addData(const float* data, int dataPerVertex)
+void DataBuffer::addVec3s(const glm::vec3* data)
 {
-    auto dataSize = dataPerVertex * sizeof(float) * m_vertexCount;
+    auto dataSize = sizeof(data[0]) * m_vertexCount;
+
+    glNamedBufferSubData(m_bufferID, m_indexEnd + m_dataOffset, dataSize, data);
+    m_dataOffset += dataSize;
+}
+
+void DataBuffer::addVec2s(const glm::vec2* data)
+{
+    auto dataSize = sizeof(data[0]) * m_vertexCount;
 
     glNamedBufferSubData(m_bufferID, m_indexEnd + m_dataOffset, dataSize, data);
     m_dataOffset += dataSize;
@@ -42,31 +50,33 @@ VertexArray::~VertexArray() {}
 
 void VertexArray::loadBuffer(const DataBuffer& buffer, int texIndex)
 {
+    // Set elements/indices buffer location
     glVertexArrayElementBuffer(m_vertexArrayID, buffer.dataBufferID());
-    auto fsize = sizeof(float);
-    glVertexArrayVertexBuffer(m_vertexArrayID, 0, buffer.dataBufferID(), 
-        buffer.indexEnd(), fsize * 3);
+    // Always set binding point for position data
+    glVertexArrayVertexBuffer(m_vertexArrayID, 0, buffer.dataBufferID(), buffer.indexEnd(), sizeof(float) * 3);
+
+    auto bufferOffset = sizeof(float) * 3 * buffer.vertexCount();
     // If just position and texCoord data, only need 1 more binding point
     if (texIndex == 1) {
-        glVertexArrayVertexBuffer(m_vertexArrayID, 1, buffer.dataBufferID(),
-            buffer.indexEnd() + fsize * texIndex * 3l * buffer.vertexCount(),
-            fsize * 2);
+        glVertexArrayVertexBuffer(m_vertexArrayID, 1, buffer.dataBufferID(), 
+            buffer.indexEnd() + texIndex * bufferOffset, sizeof(float) * 2);
     }
     // Else make as many binding points as we need
     if (texIndex > 1) {
-        // TODO: support for 4+ binding points
-        glVertexArrayVertexBuffer(m_vertexArrayID, 1, buffer.dataBufferID(),
-            buffer.indexEnd() + fsize * 3l * buffer.vertexCount(),
-            fsize * 3);
-        glVertexArrayVertexBuffer(m_vertexArrayID, 2, buffer.dataBufferID(),
-            buffer.indexEnd() + fsize * texIndex * 3l * buffer.vertexCount(),
-            fsize * 2);
+        for (int i = 1; i < buffer.numComponents(); i++) {
+            int dataPerVertex = i == texIndex ? 2 : 3;
+            glVertexArrayVertexBuffer(m_vertexArrayID, i, buffer.dataBufferID(),
+                buffer.indexEnd() + bufferOffset, sizeof(float) * dataPerVertex);
+            bufferOffset += sizeof(float) * dataPerVertex * buffer.vertexCount();
+        }
+        //glVertexArrayVertexBuffer(m_vertexArrayID, 1, buffer.dataBufferID(),
+        //    buffer.indexEnd() + fsize * 3l * buffer.vertexCount(), fsize * 3);
+        //glVertexArrayVertexBuffer(m_vertexArrayID, 2, buffer.dataBufferID(),
+        //    buffer.indexEnd() + fsize * 2l * 3l * buffer.vertexCount(), fsize * 2);
     }
 
     int dataPerVertex = 3, bindingindex = 0;
-    //long vaOffset, totalOffset = 0;
     for (int attribindex = 0; attribindex < buffer.numComponents(); attribindex++) {
-        //vaOffset = totalOffset;
         if (attribindex == texIndex) {
             dataPerVertex = 2;
         }
@@ -75,7 +85,6 @@ void VertexArray::loadBuffer(const DataBuffer& buffer, int texIndex)
         glVertexArrayAttribFormat(m_vertexArrayID, attribindex, dataPerVertex, GL_FLOAT,
             GL_FALSE, 0);
         glVertexArrayAttribBinding(m_vertexArrayID, attribindex, bindingindex);
-        //totalOffset += (long)(dataPerVertex * buffer.vertexCount() * sizeof(float));
     }
 }
 

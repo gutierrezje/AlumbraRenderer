@@ -5,7 +5,8 @@ public:
     DataBuffer(int bufferSize, int vertexCount, int numComponents, int indexCount = 0);
     ~DataBuffer();
     void addIndices(const unsigned int* idcs);
-    void addData(const float* data, int dataPerVertex);
+    void addVec3s(const glm::vec3* data);
+    void addVec2s(const glm::vec2* data);
 
     //inline unsigned int bufferSize() const { return m_bufferSize; }
     inline int numComponents() const { return m_numComponents; }
@@ -16,8 +17,8 @@ public:
 private:
     unsigned int m_bufferID;
     int m_numComponents, m_vertexCount, m_indexCount;
-    long m_indexEnd = 0;
-    long m_dataOffset = 0;
+    long long m_indexEnd = 0ll;
+    long long m_dataOffset = 0ll;
 };
 
 class VertexArray {

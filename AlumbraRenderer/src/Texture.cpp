@@ -3,13 +3,9 @@
 #include <stb_image.h>
 
 Texture::Texture()
+    : m_textureID(0)
 {
-    glCreateTextures(GL_TEXTURE_2D, 1, &m_textureID);
-
-    glTextureParameteri(m_textureID, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTextureParameteri(m_textureID, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTextureParameteri(m_textureID, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTextureParameteri(m_textureID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
 }
 
 Texture::~Texture() {}
@@ -18,6 +14,13 @@ Texture::~Texture() {}
 // ---------------------------------------------------
 void Texture::loadTexture(const std::string& path, bool gamma)
 {
+    glCreateTextures(GL_TEXTURE_2D, 1, &m_textureID);
+
+    glTextureParameteri(m_textureID, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTextureParameteri(m_textureID, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTextureParameteri(m_textureID, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTextureParameteri(m_textureID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
     m_path = path;
     int width, height, nrComponents;
     unsigned char* data = stbi_load(path.c_str(), &width, &height, &nrComponents, 0);
