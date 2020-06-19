@@ -7,12 +7,14 @@ Mesh::Mesh() {}
 
 Mesh::Mesh(std::vector<glm::vec3>& positions, std::vector<glm::vec3>& normals,
     std::vector<glm::vec2>& texCoords, std::vector<glm::vec3>& tangents,
-    std::vector<unsigned int>& indices, std::vector<MeshTexture>& textures)
+    std::vector<glm::vec3>& bitangents, std::vector<unsigned int>& indices,
+    std::vector<MeshTexture>& textures)
 {
     m_positions = positions;
     m_normals = normals;
     m_texCoords = texCoords;
     m_tangents = tangents;
+    m_bitangents = bitangents;
     m_indices = indices;
     m_textures = textures;
 
@@ -39,6 +41,7 @@ void Mesh::draw(Shader shader)
         else if (name == "texture_normal") {
             number = std::to_string(normalNr++);
             shader.setBool("useNormalMap", true);
+            //name = "texture_diffuse";
         }
         else
             continue;
@@ -64,16 +67,16 @@ void Mesh::draw(Shader shader)
 /* Initializes all the buffer objects/arrays */
 void Mesh::setupMesh()
 {
-    
     auto bufferSize = sizeof(unsigned int) * m_indices.size()
-        + sizeof(m_positions[0]) * (m_positions.size() + m_normals.size() + m_tangents.size())
+        + sizeof(m_positions[0]) * (m_positions.size() + m_normals.size() + m_tangents.size() + m_bitangents.size())
         + sizeof(m_texCoords[0]) * m_texCoords.size();
-    DataBuffer buffer(bufferSize, m_positions.size(), 4, m_indices.size());
+    DataBuffer buffer(bufferSize, m_positions.size(), 5, m_indices.size());
     buffer.addIndices(m_indices.data());
     buffer.addVec3s(m_positions.data());
     buffer.addVec3s(m_normals.data());
     buffer.addVec2s(m_texCoords.data());
     buffer.addVec3s(m_tangents.data());
+    buffer.addVec3s(m_bitangents.data());
     VertexArray vao;
     vao.loadBuffer(buffer, 2);
     m_meshVAO = vao.vertexArrayID();

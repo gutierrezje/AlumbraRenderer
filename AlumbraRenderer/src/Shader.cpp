@@ -79,7 +79,7 @@ unsigned int Shader::getUniformLocation(const std::string& name) const
         return keyval->second;
 
     auto location = glGetUniformLocation(ID, name.c_str());
-    auto ret = m_uniformLocationCache.insert(std::pair<std::string, unsigned int>(name, location));
+    auto ret = m_uniformLocationCache.insert(make_pair(name, location));
     return ret.first->second;
 }
 

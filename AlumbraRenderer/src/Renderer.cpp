@@ -67,9 +67,8 @@ void Renderer::setupFramebuffers()
     m_modelShader.setSampler("directionalDepthMap", 3);
 
     // Setup shadow cubemap
-    // TODO: Setup a separate framebuffer for point lights (per light?)
-    glCreateTextures(GL_TEXTURE_CUBE_MAP, m_pointDepthMaps.size(), m_pointDepthMaps.data());
     glCreateFramebuffers(m_pointDepthFBOs.size(), m_pointDepthFBOs.data());
+    glCreateTextures(GL_TEXTURE_CUBE_MAP, m_pointDepthMaps.size(), m_pointDepthMaps.data());
     for (int i = 0; i < m_pointDepthMaps.size(); i++) {
         glTextureStorage2D(m_pointDepthMaps[i], 1, GL_DEPTH_COMPONENT24, SHADOW_WIDTH, SHADOW_HEIGHT);
         glTextureParameteri(m_pointDepthMaps[i], GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -189,12 +188,15 @@ void Renderer::beginDraw()
     }
 
     // Forward pass
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glEnable(GL_FRAMEBUFFER_SRGB);
-    glViewport(0, 0, Window::width(), Window::height());
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
+    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    m_fbo.bind();
+    m_fbo.clear();
     //glCullFace(GL_BACK);
+    
+    //glDisable(GL_FRAMEBUFFER_SRGB);
+    glViewport(0, 0, Window::width(), Window::height());
+    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
     m_modelShader.use();
 
     // Lighting
@@ -204,7 +206,6 @@ void Renderer::beginDraw()
     m_modelShader.setInt("numPointLights", lights.size());
     
     m_modelShader.setVec3("viewPos", g_camera.position());
-    m_modelShader.setVec3("viewPosV", g_camera.position());
     m_modelShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
     m_modelShader.setFloat("farPlane", far);
     glBindTextureUnit(3, m_directionalDepthMap);
@@ -219,7 +220,7 @@ void Renderer::beginDraw()
     m_modelShader.setMat4("view", viewM);
 
     // Draw models
-    m_modelShader.setFloat("material.shininess", 32.0f);
+    m_modelShader.setFloat("material.shininess", 128.0f);
     for (int i = 0; i < models.size(); i++) {
         glm::mat4 modelM = glm::mat4(1.0f);
         modelM = glm::scale(modelM, transforms[i].scale);
@@ -236,6 +237,18 @@ void Renderer::beginDraw()
     m_environmentShader.setMat4("view", cmView);
     m_scene->cubemap().draw(m_environmentShader);
     
+    
+
+    m_fbo.unbind();
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_FRAMEBUFFER_SRGB);
+    glClear(GL_COLOR_BUFFER_BIT);
+    m_fbShader.use();
+    glBindVertexArray(m_fbQuadVAO);
+    m_fbo.bindTexture();
+    m_fbShader.setFloat("exposure", m_exposure);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
     drawGUI();
 }
 
@@ -255,6 +268,8 @@ void Renderer::drawGUI()
         ImGui::Text("L_ALT/SPACE - Down/Up");
         ImGui::Text("P - Show/Hide Mouse Pointer");
         ImGui::Text("ESC - Exit Program");
+
+        ImGui::SliderFloat("Exposure", &m_exposure, 0.01f, 5.0f);
 
         ImGui::End();
     }

@@ -23,22 +23,31 @@ Cube::Cube(const std::string& diffTexPath, const std::string& specTexPath, const
     if (normTexPath != "") {
         texture.loadTexture(normTexPath);
         m_textures.push_back({ texture.textureID(), "texture_normal", texture.path() });
-        /*
+        
         for (auto i = 0ll; i < m_positions.size(); i += 3ll) {
             glm::vec3 edge1 = m_positions[i + 1ll] - m_positions[i];
             glm::vec3 edge2 = m_positions[i + 2ll] - m_positions[i];
+            if (m_normals[i].x < 0 | m_normals[i].y < 0 | m_normals[i].z < 0) {
+                edge1 = m_positions[i] - m_positions[i + 1ll];
+                edge2 = m_positions[i] - m_positions[i + 2ll];
+            }
 
             glm::vec2 deltaUV1 = m_texCoords[i + 1ll] - m_texCoords[i];
             glm::vec2 deltaUV2 = m_texCoords[i + 2ll] - m_texCoords[i];
-
             float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV1.y * deltaUV2.x);
 
             glm::vec3 tangent = f * (deltaUV2.y * edge1 - deltaUV1.y * edge2);
+            
             m_tangents.push_back(tangent);
             m_tangents.push_back(tangent);
             m_tangents.push_back(tangent);
+
+
+            glm::vec3 bitangent = f * (-deltaUV2.x * edge1 + deltaUV1.x * edge2);
+            m_bitangents.push_back(bitangent);
+            m_bitangents.push_back(bitangent);
+            m_bitangents.push_back(bitangent);
         }
-        */
     }
     else {
         m_textures.push_back({ 0, "texture_null", "" });

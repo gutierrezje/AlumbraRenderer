@@ -32,6 +32,10 @@ private:
     std::vector<GLuint> m_pointDepthFBOs;
     std::vector<GLuint> m_pointDepthMaps;
 
+    // Settings
+    // TODO: Maybe this should be part of the Camera or Scene class
+    float m_exposure = 1.0f;
+
     void setupShaders();
     void setupFramebuffers();
     void setupUBOs();

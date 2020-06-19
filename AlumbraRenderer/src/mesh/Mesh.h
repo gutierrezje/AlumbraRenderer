@@ -9,7 +9,7 @@ struct Vertex {
 };
 
 struct MeshTexture {
-    unsigned int id;
+    GLuint id;
     std::string type;
     std::string path;
 };
@@ -21,6 +21,7 @@ public:
     std::vector<glm::vec3> m_normals;
     std::vector<glm::vec2> m_texCoords;
     std::vector<glm::vec3> m_tangents;
+    std::vector<glm::vec3> m_bitangents;
     std::vector<unsigned int> m_indices;
     std::vector<MeshTexture> m_textures;
     int m_vertexCount;
@@ -29,7 +30,8 @@ public:
     Mesh();
     Mesh(std::vector<glm::vec3>& positions, std::vector<glm::vec3>& normals,
         std::vector<glm::vec2>& texCoords, std::vector<glm::vec3>& tangents,
-        std::vector<unsigned int>& indices, std::vector<MeshTexture>& textures);
+        std::vector<glm::vec3>& bitangents, std::vector<unsigned int>& indices,
+        std::vector<MeshTexture>& textures);
     void draw(Shader shader);
 protected:
     /* Render data */

@@ -58,6 +58,7 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
     std::vector<glm::vec3> normals;
     std::vector<glm::vec2> texCoords;
     std::vector<glm::vec3> tangents;
+    std::vector<glm::vec3> bitangents;
     std::vector<unsigned int> indices;
     std::vector<MeshTexture> textures;
 
@@ -69,6 +70,7 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
         positions.emplace_back(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
         normals.emplace_back(mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z);
         tangents.emplace_back(mesh->mTangents[i].x, mesh->mTangents[i].y, mesh->mTangents[i].z);
+        bitangents.emplace_back(mesh->mBitangents[i].x, mesh->mBitangents[i].y, mesh->mBitangents[i].z);
         if (mesh->mTextureCoords[0]) {
             texCoords.emplace_back(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y);
         }
@@ -96,7 +98,7 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
     }
 
     // return a mesh object created from the extracted mesh data
-    return Mesh(positions, normals, texCoords, tangents, indices, textures);
+    return Mesh(positions, normals, texCoords, tangents, bitangents, indices, textures);
 }
 
 /* Checks all material textures of a given type and loads the textures if they're not loaded yet.

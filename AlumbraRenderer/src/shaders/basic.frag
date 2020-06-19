@@ -6,8 +6,6 @@ in VS_OUT {
     vec4 FragPosLightSpace;
     vec3 Normal;
     mat3 TBN;
-    vec3 TangentViewPos;
-    vec3 TangentFragPos;
 } fs_in;
 
 out vec4 FragColor;
@@ -61,9 +59,9 @@ uniform DirectionalLight directLight;
 uniform sampler2D directionalDepthMap;
 uniform SpotLight spotLight;
 
-vec3 calcPointLight(PointLight light, vec3 lightPos, vec3 normal, vec3 fragPos, vec3 viewDir, int lightIndex);
+vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, int lightIndex);
 float calcPointShadow(vec3 fragPos, vec3 lightPos, float bias, int lightIndex);
-vec3 calcDirectLight(DirectionalLight light, vec3 lightPos, vec3 normal, vec3 fragPos, vec3 viewDir);
+vec3 calcDirectLight(DirectionalLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
 float calcDirectionalShadow(vec4 fragPosLightSpace, float bias);
 vec3 calcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
 
@@ -80,40 +78,31 @@ void main()
 {    
     // Properties
     vec3 norm;
-    vec3 viewDir;
-    vec3 fragPos;
-    vec3 lightPos;
+    vec3 viewDir = normalize(viewPos - fs_in.FragPos);
+    vec3 fragPos = fs_in.FragPos;
 
     if (useNormalMap) {
         norm = texture(material.texture_normal1, fs_in.TexCoords).rgb;
-        norm = normalize(norm * 2.0 - 1.0);
-        viewDir = normalize(fs_in.TangentViewPos - fs_in.TangentFragPos);
-        fragPos = fs_in.TangentFragPos;
-        lightPos = fs_in.TBN * -directLight.direction;
+        norm = norm * 2.0 - 1.0;
+        norm = normalize(fs_in.TBN * norm);
     }
     else {
         norm = normalize(fs_in.Normal);
-        viewDir = normalize(viewPos - fs_in.FragPos);
-        fragPos = fs_in.FragPos;
-        lightPos = -directLight.direction;
     }
 
-    vec3 result = calcDirectLight(directLight, lightPos, norm, fragPos, viewDir);
+    vec3 result = calcDirectLight(directLight, norm, fragPos, viewDir);
     
     int numLights = MAX_LIGHTS < numPointLights ? MAX_LIGHTS : numPointLights;
     for (int i = 0; i < numLights; i++) {
-        if (useNormalMap) 
-            lightPos = fs_in.TBN * pointLights[i].position.xyz;
-        else 
-            lightPos = pointLights[i].position.xyz;
-        
-        result += calcPointLight(pointLights[i], lightPos, norm, fragPos, viewDir, i);
+        result += calcPointLight(pointLights[i], norm, fragPos, viewDir, i);
     }
+    //result = norm;
     FragColor = vec4(result, 1.0);
 }
 
-vec3 calcPointLight(PointLight light, vec3 lightPos, vec3 normal, vec3 fragPos, vec3 viewDir, int lightIndex) {
+vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, int lightIndex) {
     // Normalize direction to light vector
+    vec3 lightPos = light.position.xyz;
     vec3 d = lightPos - fragPos;
     float r = length(d);
     vec3 lightDir = d / r;
@@ -157,8 +146,8 @@ float calcPointShadow(vec3 fragPos, vec3 lightPos, float bias, int lightIndex) {
     return shadow / float(samples);
 }
 
-vec3 calcDirectLight(DirectionalLight light, vec3 lightPos, vec3 normal, vec3 fragPos, vec3 viewDir) {
-    vec3 lightDir = normalize(lightPos);
+vec3 calcDirectLight(DirectionalLight light, vec3 normal, vec3 fragPos, vec3 viewDir) {
+    vec3 lightDir = normalize(-light.direction);
 
     vec3 diffTex = texture(material.texture_diffuse1, fs_in.TexCoords).rgb;
     vec3 specTex = texture(material.texture_specular1, fs_in.TexCoords).rgb;

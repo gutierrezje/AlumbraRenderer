@@ -33,7 +33,7 @@ void Framebuffer::clear()
 // Currently attaches a colorbuffer texture
 void Framebuffer::attachTexture() {
     glCreateTextures(GL_TEXTURE_2D, 1, &m_textureID);
-    glTextureStorage2D(m_textureID, 1, GL_RGBA8,
+    glTextureStorage2D(m_textureID, 1, GL_RGBA16F,
         Window::width(), Window::height());
     glTextureParameteri(m_textureID, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTextureParameteri(m_textureID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
