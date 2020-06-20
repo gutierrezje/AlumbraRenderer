@@ -42,10 +42,23 @@ void Renderer::setupShaders()
         "src/shaders/point_depth_map.vert",
         "src/shaders/point_depth_map.geom",
         "src/shaders/point_depth_map.frag" });
+    m_blurShader.addShaders({ "src/shaders/gaussian_blur.vert", "src/shaders/gaussian_blur.frag" });
 }
 
 void Renderer::setupFramebuffers()
 {
+    glCreateFramebuffers(2, m_pingPongFBOs);
+    glCreateTextures(GL_TEXTURE_2D, 2, m_pingPongBuffers);
+    for (int i = 0; i < 2; i++) {
+        glTextureStorage2D(m_pingPongBuffers[i], 1, GL_RGBA16F, Window::width(), Window::height());
+        glTextureParameteri(m_pingPongBuffers[i], GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTextureParameteri(m_pingPongBuffers[i], GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTextureParameteri(m_pingPongBuffers[i], GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTextureParameteri(m_pingPongBuffers[i], GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glNamedFramebufferTexture(m_pingPongFBOs[i], GL_COLOR_ATTACHMENT0, m_pingPongBuffers[i], 0);
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+            std::cout << "Framebuffer not complete!\n";
+    }
     // Setup shadow map + framebuffer
     glCreateTextures(GL_TEXTURE_2D, 1, &m_directionalDepthMap);
     glTextureStorage2D(m_directionalDepthMap, 1, GL_DEPTH_COMPONENT24, SHADOW_WIDTH, SHADOW_HEIGHT);
@@ -86,6 +99,9 @@ void Renderer::setupFramebuffers()
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+    m_blurShader.use();
+    m_blurShader.setSampler("image", 0);
+    
     // Setting up a quad to render to if needed
     int size = sizeof(fbQuadPos[0]) * fbQuadPos.size() + sizeof(fbQuadTex[0])  * fbQuadTex.size();
     DataBuffer vbo(size, 6, 2);
@@ -95,7 +111,8 @@ void Renderer::setupFramebuffers()
     vao.loadBuffer(vbo, 1);
     m_fbQuadVAO = vao.vertexArrayID();
     m_fbShader.use();
-    m_fbShader.setSampler("screenTexture", 0);
+    m_fbShader.setSampler("scene", 0);
+    m_fbShader.setSampler("bloomBlur", 1);
 }
 
 void Renderer::setupUBOs()
@@ -188,14 +205,13 @@ void Renderer::beginDraw()
     }
 
     // Forward pass
-    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
     m_fbo.bind();
     m_fbo.clear();
     //glCullFace(GL_BACK);
     
     //glDisable(GL_FRAMEBUFFER_SRGB);
     glViewport(0, 0, Window::width(), Window::height());
-    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     m_modelShader.use();
 
@@ -229,24 +245,40 @@ void Renderer::beginDraw()
         m_modelShader.setMat4("model", modelM);
         models[i]->draw(m_modelShader);
     }
-    
+
     // Draw cubemap
     glm::mat4 cmView = glm::mat4(glm::mat3(viewM));
     m_environmentShader.use();
     m_environmentShader.setMat4("projection", projectionM);
     m_environmentShader.setMat4("view", cmView);
     m_scene->cubemap().draw(m_environmentShader);
-    
-    
 
-    m_fbo.unbind();
     glDisable(GL_DEPTH_TEST);
+    bool horizontal = true, firstIteration = true;
+    int amount = 10;
+    m_blurShader.use();
+    for (int i = 0; i < amount; i++) {
+        glBindFramebuffer(GL_FRAMEBUFFER, m_pingPongFBOs[horizontal]);
+        m_blurShader.setInt("horizontal", horizontal);
+        auto currentBuffer = firstIteration ? m_fbo.colorBuffer(1) : m_pingPongBuffers[!horizontal];
+        // Render to a buffer quad
+        glBindTextureUnit(0, currentBuffer);
+        glBindVertexArray(m_fbQuadVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        horizontal = !horizontal;
+        if (firstIteration)
+            firstIteration = false;
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glEnable(GL_FRAMEBUFFER_SRGB);
     glClear(GL_COLOR_BUFFER_BIT);
     m_fbShader.use();
     glBindVertexArray(m_fbQuadVAO);
-    m_fbo.bindTexture();
+    glBindTextureUnit(0, m_fbo.colorBuffer(0));
+    glBindTextureUnit(1, m_pingPongBuffers[!horizontal]);
     m_fbShader.setFloat("exposure", m_exposure);
+    m_fbShader.setBool("bloom", true);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
     drawGUI();
@@ -269,7 +301,7 @@ void Renderer::drawGUI()
         ImGui::Text("P - Show/Hide Mouse Pointer");
         ImGui::Text("ESC - Exit Program");
 
-        ImGui::SliderFloat("Exposure", &m_exposure, 0.01f, 5.0f);
+        ImGui::SliderFloat("- Exposure", &m_exposure, 0.01f, 5.0f);
 
         ImGui::End();
     }

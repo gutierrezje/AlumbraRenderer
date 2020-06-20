@@ -21,16 +21,22 @@ private:
 
     Scene* m_scene;
     Shader m_modelShader;
+    Shader m_lightShader;
     Shader m_environmentShader;
     Shader m_fbShader;
     Shader m_directDepthShader;
     Shader m_pointDepthShader;
+    Shader m_blurShader;
     Framebuffer m_fbo;
+    GLuint m_pingPongFBOs[2]{ 0,0 };
+    GLuint m_pingPongBuffers[2]{ 0,0 };
+    
     GLuint m_fbQuadVAO;
     GLuint m_directionalDepthFBO;
     GLuint m_directionalDepthMap;
     std::vector<GLuint> m_pointDepthFBOs;
     std::vector<GLuint> m_pointDepthMaps;
+
 
     // Settings
     // TODO: Maybe this should be part of the Camera or Scene class

@@ -23,10 +23,10 @@ Scene::Scene()
     m_pLights = {
         PointLight{glm::vec4(-2.0f, 3.0f, 3.0f, 0.0f), 
             glm::vec4(1.0, 1.0, 1.0, 1.0),
-            10.0f, 10.0, glm::vec2(0.0f)},
+            10.0f, 50.0, glm::vec2(0.0f)},
         PointLight{glm::vec4(2.0f, 3.0f, 3.0f, 0.0f), 
             glm::vec4(1.0, 1.0, 1.0, 1.0),
-            10.0f, 10.0, glm::vec2(0.0f)},
+            10.0f, 50.0, glm::vec2(0.0f)},
         //PointLight{glm::vec4(0.0f, 3.0, -3.0f, 0.0f), glm::vec4(1.0), 10.0f, 10.0, glm::vec2(0.0f)}
     };
 

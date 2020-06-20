@@ -9,13 +9,13 @@ public:
     void clear();
     void attachTexture();
     void attachRenderbuffer();
-    void bindTexture();
+    void bindTexture(unsigned int index);
 
-    inline unsigned int textureID() { return m_textureID; }
+    inline GLuint colorBuffer(unsigned int index) { return m_colorBuffers[index]; }
 private:
-    unsigned int m_framebufferID;
-    unsigned int m_textureID;
-    unsigned int m_renderbufferID;
+    GLuint m_framebufferID;
+    std::vector<GLuint> m_colorBuffers;
+    GLuint m_renderbufferID;
 };
 
 

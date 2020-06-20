@@ -1,4 +1,6 @@
 #version 450 core
+layout (location = 0) out vec4 FragColor;
+layout (location = 1) out vec4 BrightColor;
 
 in VS_OUT {
     vec2 TexCoords;
@@ -8,7 +10,7 @@ in VS_OUT {
     mat3 TBN;
 } fs_in;
 
-out vec4 FragColor;
+
 
 struct DirectionalLight {
     vec3 direction;
@@ -98,6 +100,12 @@ void main()
     }
     //result = norm;
     FragColor = vec4(result, 1.0);
+
+    float brightness = dot(FragColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+    if (brightness > 1.0)
+        BrightColor = vec4(FragColor.rgb, 1.0);
+    else
+        BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
 }
 
 vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, int lightIndex) {
