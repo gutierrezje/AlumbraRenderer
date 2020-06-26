@@ -32,12 +32,11 @@ Renderer::~Renderer() {}
 
 void Renderer::setupShaders()
 {
-    m_modelShader.addShaders({ "src/shaders/basic.vert", "src/shaders/basic.frag" });
-    m_environmentShader.addShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap.frag" });
-    m_fbShader.addShaders({ "src/shaders/framequad.vert", "src/shaders/framequad.frag" });
-    m_directDepthShader.addShaders({
-        "src/shaders/directional_depth_map.vert",
-        "src/shaders/directional_depth_map.frag" });
+    m_modelShader.addShaders({ "src/shaders/deferred_shading.vert", "src/shaders/deferred_shading.frag" });
+    m_gBufferShader.addShaders({ "src/shaders/deferred_geometry.vert", "src/shaders/deferred_geometry.frag" });
+    m_skyboxShader.addShaders({ "src/shaders/skybox.vert", "src/shaders/skybox.frag" });
+    m_postProcessShader.addShaders({ "src/shaders/screen_quad.vert", "src/shaders/screen_quad.frag" });
+    m_directDepthShader.addShaders({"src/shaders/directional_depth_map.vert"});
     m_pointDepthShader.addShaders({
         "src/shaders/point_depth_map.vert",
         "src/shaders/point_depth_map.geom",
@@ -47,6 +46,40 @@ void Renderer::setupShaders()
 
 void Renderer::setupFramebuffers()
 {
+    // Setup GBuffer
+    glCreateTextures(GL_TEXTURE_2D, 1, &m_gPosition);
+    glTextureStorage2D(m_gPosition, 1, GL_RGBA16F, Window::width(), Window::height());
+    glTextureParameteri(m_gPosition, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(m_gPosition, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &m_gNormal);
+    glTextureStorage2D(m_gNormal, 1, GL_RGBA16F, Window::width(), Window::height());
+    glTextureParameteri(m_gNormal, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(m_gNormal, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glCreateTextures(GL_TEXTURE_2D, 1, &m_gAlbedoSpec);
+    glTextureStorage2D(m_gAlbedoSpec, 1, GL_SRGB8_ALPHA8, Window::width(), Window::height());
+    glTextureParameteri(m_gAlbedoSpec, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(m_gAlbedoSpec, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glCreateRenderbuffers(1, &m_gDepthMap);
+    glNamedRenderbufferStorage(m_gDepthMap, GL_DEPTH24_STENCIL8, Window::width(), Window::height());
+
+    // Add attachments to GBuffer
+    glCreateFramebuffers(1, &m_gBufferFBO);
+    glNamedFramebufferTexture(m_gBufferFBO, GL_COLOR_ATTACHMENT0, m_gPosition, 0);
+    glNamedFramebufferTexture(m_gBufferFBO, GL_COLOR_ATTACHMENT1, m_gNormal, 0);
+    glNamedFramebufferTexture(m_gBufferFBO, GL_COLOR_ATTACHMENT2, m_gAlbedoSpec, 0);
+    glNamedFramebufferRenderbuffer(m_gBufferFBO, GL_DEPTH_STENCIL_ATTACHMENT,
+        GL_RENDERBUFFER, m_gDepthMap);
+    // Setting multiple render targets
+    glBindFramebuffer(GL_FRAMEBUFFER, m_gBufferFBO);
+    GLuint attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+    glDrawBuffers(3, attachments);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Framebuffer not complete!\n";
+
+    // TODO: Unify these setup routines under the Framebuffer class
     glCreateFramebuffers(2, m_pingPongFBOs);
     glCreateTextures(GL_TEXTURE_2D, 2, m_pingPongBuffers);
     for (int i = 0; i < 2; i++) {
@@ -77,6 +110,10 @@ void Renderer::setupFramebuffers()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     m_modelShader.use();
+
+    m_modelShader.setSampler("gPosition", 0);
+    m_modelShader.setSampler("gNormal", 1);
+    m_modelShader.setSampler("gAlbedoSpec", 2);
     m_modelShader.setSampler("directionalDepthMap", 3);
 
     // Setup shadow cubemap
@@ -97,22 +134,24 @@ void Renderer::setupFramebuffers()
 
         m_modelShader.setSampler("pointDepthMaps[" + std::to_string(i) + "]", 4 + i);
     }
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     m_blurShader.use();
     m_blurShader.setSampler("image", 0);
     
-    // Setting up a quad to render to if needed
-    int size = sizeof(fbQuadPos[0]) * fbQuadPos.size() + sizeof(fbQuadTex[0])  * fbQuadTex.size();
+    // Setting up a screen quad to render to
+    auto size = sizeof(fbQuadPos[0]) * fbQuadPos.size() + sizeof(fbQuadTex[0])  * fbQuadTex.size();
     DataBuffer vbo(size, 6, 2);
     vbo.addVec3s(fbQuadPos.data());
     vbo.addVec2s(fbQuadTex.data());
     VertexArray vao;
     vao.loadBuffer(vbo, 1);
-    m_fbQuadVAO = vao.vertexArrayID();
-    m_fbShader.use();
-    m_fbShader.setSampler("scene", 0);
-    m_fbShader.setSampler("bloomBlur", 1);
+    m_screenQuadVAO = vao.vertexArrayID();
+
+    m_postProcessShader.use();
+    m_postProcessShader.setSampler("sceneTexture", 0);
+    m_postProcessShader.setSampler("bloomTexture", 1);
 }
 
 void Renderer::setupUBOs()
@@ -204,15 +243,32 @@ void Renderer::beginDraw()
         }
     }
 
-    // Forward pass
+    // Geometry Pass
+    glBindFramebuffer(GL_FRAMEBUFFER, m_gBufferFBO);
+    glClearColor(0.0, 0.0, 0.0, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_DEPTH_TEST);
+    glViewport(0, 0, Window::width(), Window::height());
+    m_gBufferShader.use();
+
+    glm::mat4 projectionM = glm::perspective(glm::radians(g_camera.zoom()),
+        (float)Window::width() / (float)Window::height(), 0.1f, 100.0f);
+    glm::mat4 viewM = g_camera.getViewMatrix();
+    m_gBufferShader.setMat4("projection", projectionM);
+    m_gBufferShader.setMat4("view", viewM);
+
+    for (int i = 0; i < models.size(); i++) {
+        glm::mat4 modelM = glm::mat4(1.0f);
+        modelM = glm::scale(modelM, transforms[i].scale);
+        modelM = glm::translate(modelM, transforms[i].translate);
+
+        m_gBufferShader.setMat4("model", modelM);
+        models[i]->draw(m_gBufferShader);
+    }
+
+    // Deferred shading pass
     m_fbo.bind();
     m_fbo.clear();
-    //glCullFace(GL_BACK);
-    
-    //glDisable(GL_FRAMEBUFFER_SRGB);
-    glViewport(0, 0, Window::width(), Window::height());
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
     m_modelShader.use();
 
     // Lighting
@@ -224,34 +280,35 @@ void Renderer::beginDraw()
     m_modelShader.setVec3("viewPos", g_camera.position());
     m_modelShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
     m_modelShader.setFloat("farPlane", far);
+    glBindTextureUnit(0, m_gPosition);
+    glBindTextureUnit(1, m_gNormal);
+    glBindTextureUnit(2, m_gAlbedoSpec);
     glBindTextureUnit(3, m_directionalDepthMap);
     for (int i = 0; i < m_pointDepthMaps.size(); i++) {
         glBindTextureUnit(4 + i, m_pointDepthMaps[i]);
     }
 
-    glm::mat4 projectionM = glm::perspective(glm::radians(g_camera.zoom()),
-        (float)Window::width() / (float)Window::height(), 0.1f, 100.0f);
-    glm::mat4 viewM = g_camera.getViewMatrix();
-    m_modelShader.setMat4("projection", projectionM);
-    m_modelShader.setMat4("view", viewM);
+    glBindVertexArray(m_screenQuadVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
 
     // Draw models
-    m_modelShader.setFloat("material.shininess", 128.0f);
-    for (int i = 0; i < models.size(); i++) {
-        glm::mat4 modelM = glm::mat4(1.0f);
-        modelM = glm::scale(modelM, transforms[i].scale);
-        modelM = glm::translate(modelM, transforms[i].translate);
+    //m_modelShader.setFloat("material.shininess", 128.0f);
+    //for (int i = 0; i < models.size(); i++) {
+    //    glm::mat4 modelM = glm::mat4(1.0f);
+    //    modelM = glm::scale(modelM, transforms[i].scale);
+    //    modelM = glm::translate(modelM, transforms[i].translate);
+    //
+    //    m_modelShader.setMat4("model", modelM);
+    //    models[i]->draw(m_modelShader);
+    //}
 
-        m_modelShader.setMat4("model", modelM);
-        models[i]->draw(m_modelShader);
-    }
-
+    // TODO: Fix bug where all of skybox is being blurred for bloom
     // Draw cubemap
-    glm::mat4 cmView = glm::mat4(glm::mat3(viewM));
-    m_environmentShader.use();
-    m_environmentShader.setMat4("projection", projectionM);
-    m_environmentShader.setMat4("view", cmView);
-    m_scene->cubemap().draw(m_environmentShader);
+    //glm::mat4 cmView = glm::mat4(glm::mat3(viewM));
+    //m_skyboxShader.use();
+    //m_skyboxShader.setMat4("projection", projectionM);
+    //m_skyboxShader.setMat4("view", cmView);
+    //m_scene->cubemap().draw(m_skyboxShader);
 
     glDisable(GL_DEPTH_TEST);
     bool horizontal = true, firstIteration = true;
@@ -263,7 +320,7 @@ void Renderer::beginDraw()
         auto currentBuffer = firstIteration ? m_fbo.colorBuffer(1) : m_pingPongBuffers[!horizontal];
         // Render to a buffer quad
         glBindTextureUnit(0, currentBuffer);
-        glBindVertexArray(m_fbQuadVAO);
+        glBindVertexArray(m_screenQuadVAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         horizontal = !horizontal;
         if (firstIteration)
@@ -273,12 +330,12 @@ void Renderer::beginDraw()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glEnable(GL_FRAMEBUFFER_SRGB);
     glClear(GL_COLOR_BUFFER_BIT);
-    m_fbShader.use();
-    glBindVertexArray(m_fbQuadVAO);
+    m_postProcessShader.use();
+    glBindVertexArray(m_screenQuadVAO);
     glBindTextureUnit(0, m_fbo.colorBuffer(0));
     glBindTextureUnit(1, m_pingPongBuffers[!horizontal]);
-    m_fbShader.setFloat("exposure", m_exposure);
-    m_fbShader.setBool("bloom", true);
+    m_postProcessShader.setFloat("exposure", m_exposure);
+    m_postProcessShader.setBool("bloom", true);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
     drawGUI();

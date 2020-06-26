@@ -22,12 +22,20 @@ Scene::Scene()
     // Setting up point lights
     m_pLights = {
         PointLight{glm::vec4(-2.0f, 3.0f, 3.0f, 0.0f), 
-            glm::vec4(1.0, 1.0, 1.0, 1.0),
-            10.0f, 50.0, glm::vec2(0.0f)},
+            glm::vec4(1.0, 1.0, 0.0, 1.0),
+            10.0f, 10.0, glm::vec2(0.0f)},
         PointLight{glm::vec4(2.0f, 3.0f, 3.0f, 0.0f), 
-            glm::vec4(1.0, 1.0, 1.0, 1.0),
-            10.0f, 50.0, glm::vec2(0.0f)},
-        //PointLight{glm::vec4(0.0f, 3.0, -3.0f, 0.0f), glm::vec4(1.0), 10.0f, 10.0, glm::vec2(0.0f)}
+            glm::vec4(1.0, 0.0, 1.0, 1.0),
+            10.0f, 10.0, glm::vec2(0.0f)},
+        PointLight{glm::vec4(0.0f, 4.0, 0.0f, 0.0f),
+            glm::vec4(0.0f, 1.0f, 1.0f, 1.0f),
+            10.0f, 10.0, glm::vec2(0.0f)},
+        PointLight{glm::vec4(2.0f, 3.0f, -3.0f, 0.0f),
+            glm::vec4(0.7, 0.5, 0.3, 1.0),
+            10.0f, 10.0, glm::vec2(0.0f)},
+        PointLight{glm::vec4(-2.0f, 3.0f, -3.0f, 0.0f),
+            glm::vec4(0.5, 0.3, 0.7, 1.0),
+            10.0f, 10.0, glm::vec2(0.0f)},
     };
 
     // Setting up cubemap

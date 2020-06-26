@@ -6,7 +6,7 @@ Framebuffer::Framebuffer() : m_colorBuffers(2, 0)
 {
     glCreateFramebuffers(1, &m_framebufferID);
     attachTexture();
-    attachRenderbuffer();
+    //attachRenderbuffer();
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "ERROR::FRAMEBUFFER:: \
             Framebuffer is not complete" << std::endl;

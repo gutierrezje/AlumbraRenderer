@@ -21,22 +21,29 @@ private:
 
     Scene* m_scene;
     Shader m_modelShader;
-    Shader m_lightShader;
-    Shader m_environmentShader;
-    Shader m_fbShader;
+    Shader m_gBufferShader;
+    Shader m_skyboxShader;
+    Shader m_postProcessShader;
     Shader m_directDepthShader;
     Shader m_pointDepthShader;
     Shader m_blurShader;
     Framebuffer m_fbo;
-    GLuint m_pingPongFBOs[2]{ 0,0 };
-    GLuint m_pingPongBuffers[2]{ 0,0 };
+    GLuint m_screenQuadVAO;
     
-    GLuint m_fbQuadVAO;
+    // Framebuffers
     GLuint m_directionalDepthFBO;
-    GLuint m_directionalDepthMap;
     std::vector<GLuint> m_pointDepthFBOs;
-    std::vector<GLuint> m_pointDepthMaps;
+    GLuint m_pingPongFBOs[2]{ 0,0 };
+    GLuint m_gBufferFBO;
 
+    // Buffer attachments
+    GLuint m_directionalDepthMap;
+    std::vector<GLuint> m_pointDepthMaps;
+    GLuint m_pingPongBuffers[2]{ 0,0 };
+    GLuint m_gPosition;
+    GLuint m_gNormal;
+    GLuint m_gAlbedoSpec;
+    GLuint m_gDepthMap;
 
     // Settings
     // TODO: Maybe this should be part of the Camera or Scene class

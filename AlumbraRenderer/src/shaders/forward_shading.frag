@@ -10,8 +10,6 @@ in VS_OUT {
     mat3 TBN;
 } fs_in;
 
-
-
 struct DirectionalLight {
     vec3 direction;
     vec3 color;
@@ -56,7 +54,7 @@ uniform float farPlane;
 uniform bool useNormalMap;
 uniform vec3 viewPos;
 // Currently this has to match exactly how many point lights there are in the scene to work
-uniform samplerCube pointDepthMaps[2];
+uniform samplerCube pointDepthMaps[5];
 uniform DirectionalLight directLight;
 uniform sampler2D directionalDepthMap;
 uniform SpotLight spotLight;
@@ -116,7 +114,7 @@ vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, i
     vec3 lightDir = d / r;
 
     vec3 diffTex = texture(material.texture_diffuse1, fs_in.TexCoords).rgb;
-    vec3 specTex = texture(material.texture_specular1, fs_in.TexCoords).rgb;
+    vec3 specTex = texture(material.texture_specular1, fs_in.TexCoords).rrr;
 
     // Ambient shading
     vec3 ambient = 0.1 * diffTex;
@@ -158,7 +156,7 @@ vec3 calcDirectLight(DirectionalLight light, vec3 normal, vec3 fragPos, vec3 vie
     vec3 lightDir = normalize(-light.direction);
 
     vec3 diffTex = texture(material.texture_diffuse1, fs_in.TexCoords).rgb;
-    vec3 specTex = texture(material.texture_specular1, fs_in.TexCoords).rgb;
+    vec3 specTex = texture(material.texture_specular1, fs_in.TexCoords).rrr;
     float diff = max(dot(normal, lightDir), 0.0);
     vec3 halfwayDir = normalize(lightDir + viewDir);
     float spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);

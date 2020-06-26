@@ -196,19 +196,19 @@
     <ClInclude Include="src\Window.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="src\shaders\basic.frag" />
-    <None Include="src\shaders\basic.vert" />
-    <None Include="src\shaders\cubemap.frag" />
-    <None Include="src\shaders\cubemap.vert" />
-    <None Include="src\shaders\environment.frag" />
-    <None Include="src\shaders\environment.vert" />
-    <None Include="src\shaders\framequad.frag" />
-    <None Include="src\shaders\framequad.vert" />
-    <None Include="src\shaders\directional_depth_map.frag" />
+    <None Include="src\shaders\forward_shading.frag" />
+    <None Include="src\shaders\forward_shading.vert" />
+    <None Include="src\shaders\deferred_geometry.frag" />
+    <None Include="src\shaders\deferred_geometry.vert" />
+    <None Include="src\shaders\deferred_shading.frag" />
+    <None Include="src\shaders\deferred_shading.vert" />
+    <None Include="src\shaders\skybox.frag" />
+    <None Include="src\shaders\skybox.vert" />
+    <None Include="src\shaders\screen_quad.frag" />
+    <None Include="src\shaders\screen_quad.vert" />
     <None Include="src\shaders\directional_depth_map.vert" />
     <None Include="src\shaders\gaussian_blur.frag" />
     <None Include="src\shaders\gaussian_blur.vert" />
-    <None Include="src\shaders\lights.frag" />
     <None Include="src\shaders\point_depth_map.frag" />
     <None Include="src\shaders\point_depth_map.geom" />
     <None Include="src\shaders\point_depth_map.vert" />

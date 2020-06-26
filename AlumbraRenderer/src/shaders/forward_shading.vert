@@ -21,7 +21,8 @@ uniform mat4 lightSpaceMatrix;
 void main()
 {
     vs_out.TexCoords = aTexCoords;
-    vs_out.FragPos = vec3(model * vec4(aPos, 1.0));
+    vec4 worldPos = model * vec4(aPos, 1.0);
+    vs_out.FragPos = worldPos.xyz;
     vs_out.FragPosLightSpace = lightSpaceMatrix * vec4(vs_out.FragPos, 1.0);
 
     mat3 normalMatrix = transpose(inverse(mat3(model)));
@@ -35,5 +36,5 @@ void main()
 
     vs_out.TBN = (mat3(T, B, N));
 
-    gl_Position = projection * view * model * vec4(aPos, 1.0);
+    gl_Position = projection * view * worldPos;
 }
