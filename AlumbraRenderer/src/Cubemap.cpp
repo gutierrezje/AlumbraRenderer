@@ -55,9 +55,9 @@ void Cubemap::loadMap(const std::vector<std::string>& faces)
 void Cubemap::draw(const Shader& shader)
 {
     glDepthFunc(GL_LEQUAL);
+    shader.setSampler("cubemap", 0);
     glBindTextureUnit(0, m_cubemapID);
     glBindVertexArray(m_vao);
-    shader.setSampler("cubemap", 0);
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glDepthFunc(GL_LESS);
 }

@@ -139,6 +139,10 @@ void Renderer::setupFramebuffers()
 
     m_blurShader.use();
     m_blurShader.setSampler("image", 0);
+
+    m_postProcessShader.use();
+    m_postProcessShader.setSampler("sceneTexture", 0);
+    m_postProcessShader.setSampler("bloomTexture", 1);
     
     // Setting up a screen quad to render to
     auto size = sizeof(fbQuadPos[0]) * fbQuadPos.size() + sizeof(fbQuadTex[0])  * fbQuadTex.size();
@@ -148,10 +152,6 @@ void Renderer::setupFramebuffers()
     VertexArray vao;
     vao.loadBuffer(vbo, 1);
     m_screenQuadVAO = vao.vertexArrayID();
-
-    m_postProcessShader.use();
-    m_postProcessShader.setSampler("sceneTexture", 0);
-    m_postProcessShader.setSampler("bloomTexture", 1);
 }
 
 void Renderer::setupUBOs()
@@ -207,32 +207,28 @@ void Renderer::beginDraw()
     const auto& lights = m_scene->pointLights();
     m_pointDepthShader.use();
     m_pointDepthShader.setFloat("farPlane", far);
+    // TODO: Point shadow mapping is currently a huge performance hit, do better
     auto lightIndex = 0;
+    std::vector<glm::mat4> shadowTransforms;// (6, glm::mat4(0));
+    shadowTransforms.reserve(6);
     for (const auto& light : lights) {
         glBindFramebuffer(GL_FRAMEBUFFER, m_pointDepthFBOs[lightIndex++]);
         glClear(GL_DEPTH_BUFFER_BIT);
         auto lightPos = light.position.xyz();
-        std::vector<glm::mat4> shadowTransforms;
-        shadowTransforms.reserve(6);
-        // TODO: If scene remains static this can be moved out of draw function
-        // Possibly move point lights to be completely GPU managed. SSBOs?
-        shadowTransforms.emplace_back(shadowProj *
-            glm::lookAt(lightPos, lightPos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
-        shadowTransforms.emplace_back(shadowProj *
-            glm::lookAt(lightPos, lightPos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
-        shadowTransforms.emplace_back(shadowProj *
-            glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0)));
-        shadowTransforms.emplace_back(shadowProj *
-            glm::lookAt(lightPos, lightPos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, -1.0)));
-        shadowTransforms.emplace_back(shadowProj *
-            glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0)));
-        shadowTransforms.emplace_back(shadowProj *
-            glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0)));
+        shadowTransforms.emplace_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
+        shadowTransforms.emplace_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)));
+        shadowTransforms.emplace_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0)));
+        shadowTransforms.emplace_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, -1.0)));
+        shadowTransforms.emplace_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0)));
+        shadowTransforms.emplace_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0)));
 
         m_pointDepthShader.setVec3("lightPos", lightPos);
         for (int i = 0; i < 6; i++) {
             m_pointDepthShader.setMat4("shadowMatrices[" + std::to_string(i) + "]", shadowTransforms[i]);
         }
+
+        shadowTransforms.clear();
+        shadowTransforms.reserve(6);
 
         for (int i = 0; i < models.size(); i++) {
             glm::mat4 modelM = glm::mat4(1.0f);
@@ -249,6 +245,7 @@ void Renderer::beginDraw()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
     glViewport(0, 0, Window::width(), Window::height());
+    glDepthFunc(GL_LESS);
     m_gBufferShader.use();
 
     glm::mat4 projectionM = glm::perspective(glm::radians(g_camera.zoom()),
@@ -291,24 +288,17 @@ void Renderer::beginDraw()
     glBindVertexArray(m_screenQuadVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
-    // Draw models
-    //m_modelShader.setFloat("material.shininess", 128.0f);
-    //for (int i = 0; i < models.size(); i++) {
-    //    glm::mat4 modelM = glm::mat4(1.0f);
-    //    modelM = glm::scale(modelM, transforms[i].scale);
-    //    modelM = glm::translate(modelM, transforms[i].translate);
-    //
-    //    m_modelShader.setMat4("model", modelM);
-    //    models[i]->draw(m_modelShader);
-    //}
-
-    // TODO: Fix bug where all of skybox is being blurred for bloom
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_gBufferFBO);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_fbo.id());
+    glBlitFramebuffer(0, 0, Window::width(), Window::height(),
+        0, 0, Window::width(), Window::height(), GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+    m_fbo.bind();
     // Draw cubemap
-    //glm::mat4 cmView = glm::mat4(glm::mat3(viewM));
-    //m_skyboxShader.use();
-    //m_skyboxShader.setMat4("projection", projectionM);
-    //m_skyboxShader.setMat4("view", cmView);
-    //m_scene->cubemap().draw(m_skyboxShader);
+    glm::mat4 cmView = glm::mat4(glm::mat3(viewM));
+    m_skyboxShader.use();
+    m_skyboxShader.setMat4("projection", projectionM);
+    m_skyboxShader.setMat4("view", cmView);
+    m_scene->cubemap().draw(m_skyboxShader);
 
     glDisable(GL_DEPTH_TEST);
     bool horizontal = true, firstIteration = true;

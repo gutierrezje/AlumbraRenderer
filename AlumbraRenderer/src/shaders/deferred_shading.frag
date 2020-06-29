@@ -30,13 +30,14 @@ uniform DirectionalLight directLight;
 uniform sampler2D directionalDepthMap;
 uniform mat4 lightSpaceMatrix;
 
-uniform sampler2D gPosition;
-uniform sampler2D gNormal;
-uniform sampler2D gAlbedoSpec;
-
 uniform vec3 viewPos;
 uniform int numPointLights;
 uniform float farPlane;
+
+// GBuffer textures
+uniform sampler2D gPosition;
+uniform sampler2D gNormal;
+uniform sampler2D gAlbedoSpec;
 
 vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, int lightIndex);
 float calcPointShadow(vec3 fragPos, vec3 lightPos, float bias, int lightIndex);
@@ -92,7 +93,7 @@ vec3 calcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, i
     vec3 diffuse = diff * diffTex;
     // Specular shading
     vec3 halfwayDir = normalize(lightDir + viewDir);
-    float spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0);
+    float spec = pow(max(dot(normal, halfwayDir), 0.0), 16.0);
     vec3 specular = spec * specTex;
     // Inverse square light attenuation
     float windowing = clamp(1 - pow(r / light.radius, 4.0), 0.0, 1.0);
