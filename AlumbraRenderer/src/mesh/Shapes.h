@@ -16,6 +16,12 @@ public:
 private:
 };
 
+class Sphere final : public Mesh {
+public:
+    Sphere();
+    ~Sphere();
+};
+
 const std::vector<glm::vec3> cubePositions{
     // Back
     glm::vec3(-0.5f, -0.5f, -0.5f),

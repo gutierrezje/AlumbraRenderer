@@ -167,5 +167,9 @@
     <None Include="src\shaders\deferred_shading.vert" />
     <None Include="src\shaders\forward_shading.vert" />
     <None Include="src\shaders\forward_shading.frag" />
+    <None Include="src\shaders\pbr_shading.vert" />
+    <None Include="src\shaders\pbr_shading.frag" />
+    <None Include="src\shaders\pbr_geometry.vert" />
+    <None Include="src\shaders\pbr_geometry.frag" />
   </ItemGroup>
 </Project>

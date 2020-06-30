@@ -24,8 +24,6 @@ public:
     std::vector<glm::vec3> m_bitangents;
     std::vector<unsigned int> m_indices;
     std::vector<MeshTexture> m_textures;
-    int m_vertexCount;
-    int m_indexCount;
     /* Functions */
     Mesh();
     Mesh(std::vector<glm::vec3>& positions, std::vector<glm::vec3>& normals,

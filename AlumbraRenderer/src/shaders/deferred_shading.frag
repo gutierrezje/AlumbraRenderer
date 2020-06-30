@@ -24,7 +24,7 @@ layout (std140, binding = 2) uniform LightsUBO
 {
     PointLight pointLights[MAX_LIGHTS];
 };
-uniform samplerCube pointDepthMaps[5];
+uniform samplerCube pointDepthMaps[1];
 
 uniform DirectionalLight directLight;
 uniform sampler2D directionalDepthMap;

@@ -26,9 +26,19 @@ void Cubemap::loadMap(const std::vector<std::string>& faces)
     int width, height, nrChannels;
     // Need to load first face in order to get width/height for the storage function
     unsigned char* data = stbi_load(faces[0].c_str(), &width, &height, &nrChannels, 0);
+    GLenum internalFormat;
+    GLenum format;
+    if (nrChannels == 3) {
+        internalFormat = GL_SRGB8;
+        format = GL_RGB;
+    }
+    else if (nrChannels == 4) {
+        internalFormat = GL_SRGB8_ALPHA8;
+        format = GL_RGBA;
+    }
     if (data) {
-        glTextureStorage2D(m_cubemapID, 1, GL_SRGB8, width, height);
-        glTextureSubImage3D(m_cubemapID, 0, 0, 0, 0, width, height, 1, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glTextureStorage2D(m_cubemapID, 1, internalFormat, width, height);
+        glTextureSubImage3D(m_cubemapID, 0, 0, 0, 0, width, height, 1, format, GL_UNSIGNED_BYTE, data);
         stbi_image_free(data);
     }
     else {
@@ -41,7 +51,7 @@ void Cubemap::loadMap(const std::vector<std::string>& faces)
     {
         data = stbi_load(faces[faceIdx].c_str(), &width, &height, &nrChannels, 0);
         if (data) {
-            glTextureSubImage3D(m_cubemapID, 0, 0, 0, faceIdx, width, height, 1, GL_RGB, GL_UNSIGNED_BYTE, data);
+            glTextureSubImage3D(m_cubemapID, 0, 0, 0, faceIdx, width, height, 1, format, GL_UNSIGNED_BYTE, data);
             stbi_image_free(data);
         }
         else {

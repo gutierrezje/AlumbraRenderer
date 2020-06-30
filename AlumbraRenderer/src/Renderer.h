@@ -43,6 +43,7 @@ private:
     GLuint m_gPosition;
     GLuint m_gNormal;
     GLuint m_gAlbedoSpec;
+    GLuint m_gMetalRoughAO;
     GLuint m_gDepthMap;
 
     // Settings

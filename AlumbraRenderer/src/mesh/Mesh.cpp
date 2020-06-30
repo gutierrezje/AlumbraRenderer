@@ -41,7 +41,6 @@ void Mesh::draw(Shader shader)
         else if (name == "texture_normal") {
             number = std::to_string(normalNr++);
             shader.setBool("useNormalMap", true);
-            //name = "texture_diffuse";
         }
         else
             continue;
@@ -60,8 +59,8 @@ void Mesh::draw(Shader shader)
         glDrawArrays(GL_TRIANGLES, 0, m_positions.size());
     }
 
-    glBindTextureUnit(1, 0);
-    glBindTextureUnit(2, 0);
+    //glBindTextureUnit(1, 0);
+    //glBindTextureUnit(2, 0);
 }
 
 /* Initializes all the buffer objects/arrays */

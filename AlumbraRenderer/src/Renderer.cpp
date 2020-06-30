@@ -32,8 +32,8 @@ Renderer::~Renderer() {}
 
 void Renderer::setupShaders()
 {
-    m_modelShader.addShaders({ "src/shaders/deferred_shading.vert", "src/shaders/deferred_shading.frag" });
-    m_gBufferShader.addShaders({ "src/shaders/deferred_geometry.vert", "src/shaders/deferred_geometry.frag" });
+    m_modelShader.addShaders({ "src/shaders/pbr_shading.vert", "src/shaders/pbr_shading.frag" });
+    m_gBufferShader.addShaders({ "src/shaders/pbr_geometry.vert", "src/shaders/pbr_geometry.frag" });
     m_skyboxShader.addShaders({ "src/shaders/skybox.vert", "src/shaders/skybox.frag" });
     m_postProcessShader.addShaders({ "src/shaders/screen_quad.vert", "src/shaders/screen_quad.frag" });
     m_directDepthShader.addShaders({"src/shaders/directional_depth_map.vert"});
@@ -46,6 +46,7 @@ void Renderer::setupShaders()
 
 void Renderer::setupFramebuffers()
 {
+    // TODO: Unify these setup routines under the Framebuffer class
     // Setup GBuffer
     glCreateTextures(GL_TEXTURE_2D, 1, &m_gPosition);
     glTextureStorage2D(m_gPosition, 1, GL_RGBA16F, Window::width(), Window::height());
@@ -62,6 +63,11 @@ void Renderer::setupFramebuffers()
     glTextureParameteri(m_gAlbedoSpec, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTextureParameteri(m_gAlbedoSpec, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
+    glCreateTextures(GL_TEXTURE_2D, 1, &m_gMetalRoughAO);
+    glTextureStorage2D(m_gMetalRoughAO, 1, GL_RGBA16F, Window::width(), Window::height());
+    glTextureParameteri(m_gMetalRoughAO, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(m_gMetalRoughAO, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
     glCreateRenderbuffers(1, &m_gDepthMap);
     glNamedRenderbufferStorage(m_gDepthMap, GL_DEPTH24_STENCIL8, Window::width(), Window::height());
 
@@ -70,16 +76,15 @@ void Renderer::setupFramebuffers()
     glNamedFramebufferTexture(m_gBufferFBO, GL_COLOR_ATTACHMENT0, m_gPosition, 0);
     glNamedFramebufferTexture(m_gBufferFBO, GL_COLOR_ATTACHMENT1, m_gNormal, 0);
     glNamedFramebufferTexture(m_gBufferFBO, GL_COLOR_ATTACHMENT2, m_gAlbedoSpec, 0);
-    glNamedFramebufferRenderbuffer(m_gBufferFBO, GL_DEPTH_STENCIL_ATTACHMENT,
-        GL_RENDERBUFFER, m_gDepthMap);
+    glNamedFramebufferTexture(m_gBufferFBO, GL_COLOR_ATTACHMENT3, m_gMetalRoughAO, 0);
+    glNamedFramebufferRenderbuffer(m_gBufferFBO, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_gDepthMap);
     // Setting multiple render targets
     glBindFramebuffer(GL_FRAMEBUFFER, m_gBufferFBO);
-    GLuint attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
-    glDrawBuffers(3, attachments);
+    GLuint attachments[4] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
+    glDrawBuffers(4, attachments);
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "Framebuffer not complete!\n";
 
-    // TODO: Unify these setup routines under the Framebuffer class
     glCreateFramebuffers(2, m_pingPongFBOs);
     glCreateTextures(GL_TEXTURE_2D, 2, m_pingPongBuffers);
     for (int i = 0; i < 2; i++) {
@@ -113,8 +118,9 @@ void Renderer::setupFramebuffers()
 
     m_modelShader.setSampler("gPosition", 0);
     m_modelShader.setSampler("gNormal", 1);
-    m_modelShader.setSampler("gAlbedoSpec", 2);
-    m_modelShader.setSampler("directionalDepthMap", 3);
+    m_modelShader.setSampler("gAlbedo", 2);
+    m_modelShader.setSampler("gMetalRoughAO", 3);
+    m_modelShader.setSampler("directionalDepthMap", 4);
 
     // Setup shadow cubemap
     glCreateFramebuffers(m_pointDepthFBOs.size(), m_pointDepthFBOs.data());
@@ -132,7 +138,7 @@ void Renderer::setupFramebuffers()
         glDrawBuffer(GL_NONE);
         glReadBuffer(GL_NONE);
 
-        m_modelShader.setSampler("pointDepthMaps[" + std::to_string(i) + "]", 4 + i);
+        m_modelShader.setSampler("pointDepthMaps[" + std::to_string(i) + "]", 5 + i);
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -158,11 +164,13 @@ void Renderer::setupUBOs()
 {
     // Setting up lights UBO
     auto& lights = m_scene->pointLights();
-    GLuint lightsUBO;
-    glCreateBuffers(1, &lightsUBO);
-    glNamedBufferStorage(lightsUBO, lights.size() * sizeof(struct PointLight), nullptr, GL_DYNAMIC_STORAGE_BIT);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 2, lightsUBO);
-    glNamedBufferSubData(lightsUBO, 0, lights.size() * sizeof(struct PointLight), lights.data());
+    if (lights.size() != 0) {
+        GLuint lightsUBO;
+        glCreateBuffers(1, &lightsUBO);
+        glNamedBufferStorage(lightsUBO, lights.size() * sizeof(struct PointLight), nullptr, GL_DYNAMIC_STORAGE_BIT);
+        glBindBufferBase(GL_UNIFORM_BUFFER, 2, lightsUBO);
+        glNamedBufferSubData(lightsUBO, 0, lights.size() * sizeof(struct PointLight), lights.data());
+    }
 }
 
 void Renderer::beginDraw()
@@ -178,7 +186,7 @@ void Renderer::beginDraw()
 
     const auto& directLight = m_scene->directionalLight();
     
-    float nearPlane = 1.0f, farPlane = 7.5f;
+    float nearPlane = 1.0f, farPlane = m_scene->directionalLight().farPlane;
     glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, nearPlane, farPlane);
     glm::mat4 lightView = glm::lookAt(
         -directLight.direction,
@@ -190,14 +198,31 @@ void Renderer::beginDraw()
     m_directDepthShader.use();
     m_directDepthShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
 
+    int nrRows = 7;
+    int nrColumns = 7;
+    float spacing = 2.5;
+
     const auto& models = m_scene->models();
     const auto& transforms = m_scene->transforms();
     for (int i = 0; i < models.size(); i++) {
-        glm::mat4 modelM = glm::mat4(1.0f);
-        modelM = glm::scale(modelM, transforms[i].scale);
-        modelM = glm::translate(modelM, transforms[i].translate);
-        m_directDepthShader.setMat4("model", modelM);
-        models[i]->draw(m_directDepthShader);
+        glm::mat4 model = glm::mat4(1.0f);
+        for (int row = 0; row < nrRows; ++row) {
+            for (int col = 0; col < nrColumns; ++col) {
+                model = glm::mat4(1.0f);
+                model = glm::translate(model, glm::vec3(
+                    (col - (nrColumns / 2)) * spacing,
+                    (row - (nrRows / 2)) * spacing,
+                    0.0f
+                ));
+                m_directDepthShader.setMat4("model", model);
+                models[i]->draw(m_directDepthShader);
+            }
+        }
+        //glm::mat4 modelM = glm::mat4(1.0f);
+        //modelM = glm::scale(modelM, transforms[i].scale);
+        //modelM = glm::translate(modelM, transforms[i].translate);
+        //m_directDepthShader.setMat4("model", modelM);
+        //models[i]->draw(m_directDepthShader);
     }
     
     // Point lights depth pass
@@ -207,11 +232,10 @@ void Renderer::beginDraw()
     const auto& lights = m_scene->pointLights();
     m_pointDepthShader.use();
     m_pointDepthShader.setFloat("farPlane", far);
-    // TODO: Point shadow mapping is currently a huge performance hit, do better
     auto lightIndex = 0;
-    std::vector<glm::mat4> shadowTransforms;// (6, glm::mat4(0));
+    std::vector<glm::mat4> shadowTransforms;
     shadowTransforms.reserve(6);
-    for (const auto& light : lights) {
+    /*for (const auto& light : lights) {
         glBindFramebuffer(GL_FRAMEBUFFER, m_pointDepthFBOs[lightIndex++]);
         glClear(GL_DEPTH_BUFFER_BIT);
         auto lightPos = light.position.xyz();
@@ -231,13 +255,26 @@ void Renderer::beginDraw()
         shadowTransforms.reserve(6);
 
         for (int i = 0; i < models.size(); i++) {
-            glm::mat4 modelM = glm::mat4(1.0f);
-            modelM = glm::scale(modelM, transforms[i].scale);
-            modelM = glm::translate(modelM, transforms[i].translate);
-            m_pointDepthShader.setMat4("model", modelM);
-            models[i]->draw(m_pointDepthShader);
+            glm::mat4 model = glm::mat4(1.0f);
+            for (int row = 0; row < nrRows; ++row) {
+                for (int col = 0; col < nrColumns; ++col) {
+                    model = glm::mat4(1.0f);
+                    model = glm::translate(model, glm::vec3(
+                        (col - (nrColumns / 2)) * spacing,
+                        (row - (nrRows / 2)) * spacing,
+                        0.0f
+                    ));
+                    m_pointDepthShader.setMat4("model", model);
+                    models[i]->draw(m_pointDepthShader);
+                }
+            }
+            //glm::mat4 modelM = glm::mat4(1.0f);
+            //modelM = glm::scale(modelM, transforms[i].scale);
+            //modelM = glm::translate(modelM, transforms[i].translate);
+            //m_pointDepthShader.setMat4("model", modelM);
+            //models[i]->draw(m_pointDepthShader);
         }
-    }
+    } */
 
     // Geometry Pass
     glBindFramebuffer(GL_FRAMEBUFFER, m_gBufferFBO);
@@ -245,7 +282,6 @@ void Renderer::beginDraw()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
     glViewport(0, 0, Window::width(), Window::height());
-    glDepthFunc(GL_LESS);
     m_gBufferShader.use();
 
     glm::mat4 projectionM = glm::perspective(glm::radians(g_camera.zoom()),
@@ -254,13 +290,32 @@ void Renderer::beginDraw()
     m_gBufferShader.setMat4("projection", projectionM);
     m_gBufferShader.setMat4("view", viewM);
 
-    for (int i = 0; i < models.size(); i++) {
-        glm::mat4 modelM = glm::mat4(1.0f);
-        modelM = glm::scale(modelM, transforms[i].scale);
-        modelM = glm::translate(modelM, transforms[i].translate);
+    m_gBufferShader.setVec3("albedo", 0.5f, 0.0f, 0.0f);
 
-        m_gBufferShader.setMat4("model", modelM);
-        models[i]->draw(m_gBufferShader);
+    for (int i = 0; i < models.size(); i++) {
+        glm::mat4 model = glm::mat4(1.0f);
+        for (int row = 0; row < nrRows; ++row) {
+            m_gBufferShader.setFloat("metallic", (float)row / (float)nrRows);
+            for (int col = 0; col < nrColumns; ++col) {
+                m_gBufferShader.setFloat("roughness", glm::clamp((float)col / (float)nrColumns, 0.05f, 1.0f));
+
+                model = glm::mat4(1.0f);
+                model = glm::translate(model, glm::vec3(
+                    (col - (nrColumns / 2)) * spacing,
+                    (row - (nrRows / 2)) * spacing,
+                    0.0f
+                ));
+                m_gBufferShader.setMat4("model", model);
+                models[i]->draw(m_gBufferShader);
+            }
+        }
+
+        //glm::mat4 modelM = glm::mat4(1.0f);
+        //modelM = glm::scale(modelM, transforms[i].scale);
+        //modelM = glm::translate(modelM, transforms[i].translate);
+        //
+        //m_gBufferShader.setMat4("model", modelM);
+        //models[i]->draw(m_gBufferShader);
     }
 
     // Deferred shading pass
@@ -280,9 +335,10 @@ void Renderer::beginDraw()
     glBindTextureUnit(0, m_gPosition);
     glBindTextureUnit(1, m_gNormal);
     glBindTextureUnit(2, m_gAlbedoSpec);
-    glBindTextureUnit(3, m_directionalDepthMap);
+    glBindTextureUnit(3, m_gMetalRoughAO);
+    glBindTextureUnit(4, m_directionalDepthMap);
     for (int i = 0; i < m_pointDepthMaps.size(); i++) {
-        glBindTextureUnit(4 + i, m_pointDepthMaps[i]);
+        glBindTextureUnit(5 + i, m_pointDepthMaps[i]);
     }
 
     glBindVertexArray(m_screenQuadVAO);
@@ -349,6 +405,8 @@ void Renderer::drawGUI()
         ImGui::Text("ESC - Exit Program");
 
         ImGui::SliderFloat("- Exposure", &m_exposure, 0.01f, 5.0f);
+        ImGui::SliderFloat("- DirLightFar", &(m_scene->directionalLight().farPlane), 5.0f, 25.0f);
+        ImGui::SliderFloat3("- DirLightPos", glm::value_ptr(m_scene->directionalLight().direction), -10.0f, 10.0f);
 
         ImGui::End();
     }
