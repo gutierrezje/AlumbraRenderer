@@ -45,16 +45,17 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0);
 float DistributionGGX(vec3 N, vec3 H, float roughness);
 float GeometrySchlickGGX(float NdotV, float roughness);
 float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness);
+vec3 getNormalFromMap(vec3 WorldPos, vec3 Normal);
 
 void main()
 {
     vec3 albedo = texture(gAlbedo, TexCoords).rgb;
     float metallic = texture(gMetalRoughAO, TexCoords).r;
     float roughness = texture(gMetalRoughAO, TexCoords).g;
-	vec3 N = normalize(texture(gNormal, TexCoords).rgb);
     vec3 WorldPos = texture(gPosition, TexCoords).rgb;
+    vec3 N = normalize(texture(gNormal, TexCoords).rgb);
 
-	vec3 V = normalize(viewPos - WorldPos);
+    vec3 V = normalize(viewPos - WorldPos);
 
     vec3 F0 = vec3(0.04); 
     F0      = mix(F0, albedo, metallic);

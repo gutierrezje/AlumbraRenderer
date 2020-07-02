@@ -25,28 +25,17 @@ Mesh::Mesh(std::vector<glm::vec3>& positions, std::vector<glm::vec3>& normals,
 void Mesh::draw(Shader shader)
 {
     // bind appropriate textures
-    unsigned int diffuseNr = 1;
-    unsigned int specularNr = 1;
-    unsigned int normalNr = 1u;
 
     shader.setBool("useNormalMap", false);
     for (unsigned int i = 0; i < m_textures.size(); i++) {
         // retrieve texture number
-        std::string number;
         std::string name = m_textures[i].type;
-        if (name == "texture_diffuse")
-            number = std::to_string(diffuseNr++);
-        else if (name == "texture_specular")
-            number = std::to_string(specularNr++);
-        else if (name == "texture_normal") {
-            number = std::to_string(normalNr++);
+        if (name == "texture_normal") {
             shader.setBool("useNormalMap", true);
         }
-        else
-            continue;
 
         // now set the sampler to the correct texture unit
-        shader.setSampler(("material." + name + number), i);
+        shader.setSampler(("material." + name), i);
         // bind proper texture unit after binding
         glBindTextureUnit(i, m_textures[i].id);
     }
@@ -59,8 +48,8 @@ void Mesh::draw(Shader shader)
         glDrawArrays(GL_TRIANGLES, 0, m_positions.size());
     }
 
-    //glBindTextureUnit(1, 0);
-    //glBindTextureUnit(2, 0);
+    glBindTextureUnit(1, 0);
+    glBindTextureUnit(2, 0);
 }
 
 /* Initializes all the buffer objects/arrays */

@@ -166,7 +166,19 @@ Sphere::Sphere()
             }
         }
     }
-    
+
+    Texture texture;
+    texture.loadTexture("res/textures/rusted_iron/rustediron2_basecolor.png");
+    m_textures.push_back({ texture.textureID(), "texture_albedo", texture.path() });
+
+    // TODO: Figure out how to do tangent space if actual bump mapping is needed
+
+    texture.loadTexture("res/textures/rusted_iron/rustediron2_metallic.png");
+    m_textures.push_back({ texture.textureID(), "texture_metal", texture.path() });
+
+    texture.loadTexture("res/textures/rusted_iron/rustediron2_roughness.png");
+    m_textures.push_back({ texture.textureID(), "texture_rough", texture.path() });
+
     m_positions = vertices;
     m_normals = normals;
     m_texCoords = texCoords;

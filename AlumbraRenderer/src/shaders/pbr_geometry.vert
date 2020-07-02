@@ -26,9 +26,9 @@ void main()
     mat3 normalMatrix = transpose(inverse(mat3(model)));
     vs_out.Normal = normalMatrix * aNormal;
 
-    vec3 T = vec3(0);//normalize(normalMatrix * aTangent);
-    vec3 B = vec3(0);//normalize(normalMatrix * aBitangent);
-    vec3 N = vec3(0);//normalize(normalMatrix * aNormal);
+    vec3 T = normalize(normalMatrix * aTangent);
+    vec3 B = normalize(normalMatrix * aBitangent);
+    vec3 N = normalize(normalMatrix * aNormal);
     // Re-orthogonalization for when TS vectors have been averaged
     T = normalize(T - dot(T, N) * N);
 
