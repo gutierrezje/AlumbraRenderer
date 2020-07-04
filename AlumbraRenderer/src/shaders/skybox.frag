@@ -5,7 +5,6 @@ layout (location = 1) out vec4 BrightColor;
 in vec3 TexCoords;
 
 uniform samplerCube skybox;
-uniform sampler2D sceneTexture;
 
 void main()
 {    

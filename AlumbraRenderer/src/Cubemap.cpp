@@ -1,7 +1,11 @@
 #include "pch.h"
 #include "Cubemap.h"
 
-Cubemap::Cubemap()
+Cubemap::Cubemap() {}
+
+Cubemap::~Cubemap() {}
+
+void Cubemap::loadMap(const std::vector<std::string>& faces)
 {
     glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &m_cubemapID);
 
@@ -17,12 +21,6 @@ Cubemap::Cubemap()
     VertexArray vao;
     vao.loadBuffer(buffer, -1);
     m_vao = vao.vertexArrayID();
-}
-
-Cubemap::~Cubemap() {}
-
-void Cubemap::loadMap(const std::vector<std::string>& faces)
-{
     int width, height, nrChannels;
     // Need to load first face in order to get width/height for the storage function
     unsigned char* data = stbi_load(faces[0].c_str(), &width, &height, &nrChannels, 0);
@@ -62,11 +60,40 @@ void Cubemap::loadMap(const std::vector<std::string>& faces)
     }
 }
 
+void Cubemap::loadHDRMap(const std::string& hdrImage)
+{
+    DataBuffer buffer(sizeof(cubemapVertices[0]) * cubemapVertices.size(), 36, 1);
+    buffer.addVec3s(cubemapVertices.data());
+
+    VertexArray vao;
+    vao.loadBuffer(buffer, -1);
+    m_vao = vao.vertexArrayID();
+
+    stbi_set_flip_vertically_on_load(true);
+    int width, height, nrComponents;
+    float* data = stbi_loadf(hdrImage.c_str(), &width, &height, &nrComponents, 0);
+    if (data) {
+        glCreateTextures(GL_TEXTURE_2D, 1, &m_cubemapID);
+        glTextureStorage2D(m_cubemapID, 1, GL_RGB16F, width, height);
+        glTextureSubImage2D(m_cubemapID, 0, 0, 0, width, height, GL_RGB, GL_FLOAT, data);
+
+        glTextureParameteri(m_cubemapID, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTextureParameteri(m_cubemapID, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTextureParameteri(m_cubemapID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTextureParameteri(m_cubemapID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        stbi_image_free(data);
+    }
+    else {
+        std::cout << "Failed to load HDR image.\n";
+    }
+}
+
 void Cubemap::draw(const Shader& shader)
 {
     glDepthFunc(GL_LEQUAL);
-    shader.setSampler("cubemap", 0);
-    glBindTextureUnit(0, m_cubemapID);
+    //shader.setSampler("cubeMap", 0);
+    //glBindTextureUnit(0, m_cubemapID);
     glBindVertexArray(m_vao);
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glDepthFunc(GL_LESS);

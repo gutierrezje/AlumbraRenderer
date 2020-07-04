@@ -22,11 +22,13 @@ private:
     Scene* m_scene;
     Shader m_modelShader;
     Shader m_gBufferShader;
+    Shader m_cubemapShader;
     Shader m_skyboxShader;
     Shader m_postProcessShader;
     Shader m_directDepthShader;
     Shader m_pointDepthShader;
     Shader m_blurShader;
+
     Framebuffer m_fbo;
     GLuint m_screenQuadVAO;
     
@@ -35,6 +37,9 @@ private:
     std::vector<GLuint> m_pointDepthFBOs;
     GLuint m_pingPongFBOs[2]{ 0,0 };
     GLuint m_gBufferFBO;
+    GLuint m_captureFBO;
+
+    GLuint m_envCubemap;
 
     // Buffer attachments
     GLuint m_directionalDepthMap;

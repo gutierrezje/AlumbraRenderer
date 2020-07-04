@@ -66,6 +66,7 @@ void main()
         vec3 L = normalize(pointLights[i].position.xyz - WorldPos);
         vec3 H = normalize(V + L);
         float distance = length(pointLights[i].position.xyz - WorldPos);
+        // TODO: windowing
         float attenuation = 1.0 / (distance * distance);
         vec3 radiance = pointLights[i].color.xyz * pointLights[i].intensity * attenuation;
 

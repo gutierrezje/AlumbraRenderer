@@ -38,7 +38,7 @@ Scene::Scene()
     };
 
     // Setting up cubemap
-    std::vector<std::string> faces
+    /*std::vector<std::string> faces
     {
         "res/cubemaps/quattro/px.png",
         "res/cubemaps/quattro/nx.png",
@@ -47,7 +47,8 @@ Scene::Scene()
         "res/cubemaps/quattro/pz.png",
         "res/cubemaps/quattro/nz.png"
     };
-    m_cubemap.loadMap(faces);
+    m_cubemap.loadMap(faces);*/
+    m_cubemap.loadHDRMap("res/cubemaps/quattro_canti_8k.hdr");
 }
 
 Scene::~Scene() {

@@ -9,6 +9,7 @@ public:
     ~Cubemap();
 
     void loadMap(const std::vector<std::string>& faces);
+    void loadHDRMap(const std::string& hdrImage);
     void draw(const Shader& shader);
 
     inline GLuint cubmapID() { return m_cubemapID; }
