@@ -13,6 +13,7 @@ Renderer::Renderer(Scene* scene)
     glDepthFunc(GL_LESS);
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
 #ifdef _DEBUG
     // Enable auto debugging
@@ -37,6 +38,7 @@ void Renderer::setupShaders()
     m_skyboxShader.addShaders({ "src/shaders/skybox.vert", "src/shaders/skybox.frag" });
     m_cubemapCaptureShader.addShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_from_equirect.frag" });
     m_cubemapConvolveShader.addShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_convolve.frag" });
+    m_cubemapPrefilterShader.addShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_prefilter.frag" });
     m_postProcessShader.addShaders({ "src/shaders/screen_quad.vert", "src/shaders/screen_quad.frag" });
     m_directDepthShader.addShaders({"src/shaders/directional_depth_map.vert"});
     m_pointDepthShader.addShaders({
@@ -95,13 +97,13 @@ void Renderer::setupFramebuffers()
     glNamedRenderbufferStorage(captureRBO, GL_DEPTH_COMPONENT24, 2048, 2048);
     glNamedFramebufferRenderbuffer(m_captureFBO, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, captureRBO);
 
-    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &m_envCubemap);
-    glTextureStorage2D(m_envCubemap, 1, GL_RGB16F, 2048, 2048);
-    glTextureParameteri(m_envCubemap, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(m_envCubemap, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(m_envCubemap, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(m_envCubemap, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTextureParameteri(m_envCubemap, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &m_environmentMap);
+    glTextureStorage2D(m_environmentMap, 1, GL_RGB16F, 2048, 2048);
+    glTextureParameteri(m_environmentMap, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(m_environmentMap, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(m_environmentMap, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(m_environmentMap, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTextureParameteri(m_environmentMap, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glm::mat4 captureProjection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
     glm::mat4 captureViews[6]{
@@ -121,11 +123,12 @@ void Renderer::setupFramebuffers()
     glViewport(0, 0, 2048, 2048);
     for (unsigned face = 0; face < 6; face++) {
         m_cubemapCaptureShader.setMat4("view", captureViews[face]);
-        glNamedFramebufferTextureLayer(m_captureFBO, GL_COLOR_ATTACHMENT0, m_envCubemap, 0, face);
+        glNamedFramebufferTextureLayer(m_captureFBO, GL_COLOR_ATTACHMENT0, m_environmentMap, 0, face);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         m_scene->cubemap().draw(m_cubemapCaptureShader);
     }
+    glGenerateTextureMipmap(m_environmentMap);
 
     // Convolving cubemap
     glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &m_irradianceMap);
@@ -140,7 +143,7 @@ void Renderer::setupFramebuffers()
     m_cubemapConvolveShader.use();
     m_cubemapConvolveShader.setSampler("environmentMap", 0);
     m_cubemapConvolveShader.setMat4("projection", captureProjection);
-    glBindTextureUnit(0, m_envCubemap);
+    glBindTextureUnit(0, m_environmentMap);
 
     glViewport(0, 0, 32, 32);
     for (unsigned face = 0; face < 6; face++) {
@@ -149,6 +152,38 @@ void Renderer::setupFramebuffers()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         m_scene->cubemap().draw(m_cubemapConvolveShader);
+    }
+
+    unsigned maxMipLevels = 5;
+    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &m_prefilterMap);
+    glTextureStorage2D(m_prefilterMap, maxMipLevels, GL_RGB16F, 128, 128);
+    glTextureParameteri(m_prefilterMap, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(m_prefilterMap, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(m_prefilterMap, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(m_prefilterMap, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTextureParameteri(m_prefilterMap, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateTextureMipmap(m_prefilterMap);
+
+    m_cubemapPrefilterShader.use();
+    m_cubemapPrefilterShader.setSampler("environmentMap", 0);
+    m_cubemapPrefilterShader.setMat4("projection", captureProjection);
+    glBindTextureUnit(0, m_environmentMap);
+
+    for (unsigned mip = 0; mip < maxMipLevels; mip++) {
+        unsigned mipWidth = 128 * std::pow(0.5, mip);
+        unsigned mipHeight = 128 * std::pow(0.5, mip);
+        glNamedRenderbufferStorage(captureRBO, GL_DEPTH_COMPONENT24, mipWidth, mipHeight);
+        glViewport(0, 0, mipWidth, mipHeight);
+
+        float roughness = (float)mip / (float)(maxMipLevels - 1);
+        m_cubemapPrefilterShader.setFloat("roughness", roughness);
+        for (unsigned face = 0; face < 6; face++) {
+            m_cubemapPrefilterShader.setMat4("view", captureViews[face]);
+            glNamedFramebufferTextureLayer(m_captureFBO, GL_COLOR_ATTACHMENT0, m_prefilterMap, mip, face);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            m_scene->cubemap().draw(m_cubemapPrefilterShader);
+        }
     }
 
     // Setup Ping Pong Framebuffers
@@ -215,6 +250,7 @@ void Renderer::setupFramebuffers()
     }
 
     m_modelShader.setSampler("irradianceMap", 5 + m_pointDepthMaps.size());
+    m_modelShader.setSampler("prefilterMap", 5 + m_pointDepthMaps.size() + 1);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -417,6 +453,7 @@ void Renderer::beginDraw()
         glBindTextureUnit(5 + i, m_pointDepthMaps[i]);
     }
     glBindTextureUnit(5 + m_pointDepthMaps.size(), m_irradianceMap);
+    glBindTextureUnit(5 + m_pointDepthMaps.size() + 1, m_prefilterMap);
 
     glBindVertexArray(m_screenQuadVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -432,7 +469,7 @@ void Renderer::beginDraw()
     m_skyboxShader.setMat4("projection", projectionM);
     m_skyboxShader.setMat4("view", cmView);
     m_skyboxShader.setSampler("skybox", 0);
-    glBindTextureUnit(0, m_envCubemap);
+    glBindTextureUnit(0, m_environmentMap);
     m_scene->cubemap().draw(m_skyboxShader);
 
     glDisable(GL_DEPTH_TEST);

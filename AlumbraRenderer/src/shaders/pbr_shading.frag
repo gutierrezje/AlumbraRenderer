@@ -42,6 +42,7 @@ uniform int numPointLights;
 uniform float farPlane;
 
 uniform samplerCube irradianceMap;
+uniform samplerCube prefilterMap;
 
 vec3 fresnelSchlick(float cosTheta, vec3 F0);
 float DistributionGGX(vec3 N, vec3 H, float roughness);

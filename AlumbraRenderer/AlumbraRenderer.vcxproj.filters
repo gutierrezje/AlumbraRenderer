@@ -172,5 +172,6 @@
     <None Include="src\shaders\cubemap.vert" />
     <None Include="src\shaders\cubemap_from_equirect.frag" />
     <None Include="src\shaders\cubemap_convolve.frag" />
+    <None Include="src\shaders\cubemap_prefilter.frag" />
   </ItemGroup>
 </Project>
