@@ -35,7 +35,8 @@ void Renderer::setupShaders()
     m_modelShader.addShaders({ "src/shaders/pbr_shading.vert", "src/shaders/pbr_shading.frag" });
     m_gBufferShader.addShaders({ "src/shaders/pbr_geometry.vert", "src/shaders/pbr_geometry.frag" });
     m_skyboxShader.addShaders({ "src/shaders/skybox.vert", "src/shaders/skybox.frag" });
-    m_cubemapShader.addShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_from_equirect.frag" });
+    m_cubemapCaptureShader.addShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_from_equirect.frag" });
+    m_cubemapConvolveShader.addShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_convolve.frag" });
     m_postProcessShader.addShaders({ "src/shaders/screen_quad.vert", "src/shaders/screen_quad.frag" });
     m_directDepthShader.addShaders({"src/shaders/directional_depth_map.vert"});
     m_pointDepthShader.addShaders({
@@ -112,18 +113,42 @@ void Renderer::setupFramebuffers()
         glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, -1.0f, 0.0f)),
     };
 
-    m_cubemapShader.use();
-    m_cubemapShader.setSampler("equirectangularMap", 0);
-    m_cubemapShader.setMat4("projection", captureProjection);
+    m_cubemapCaptureShader.use();
+    m_cubemapCaptureShader.setSampler("equirectangularMap", 0);
+    m_cubemapCaptureShader.setMat4("projection", captureProjection);
     glBindTextureUnit(0, m_scene->cubemap().cubmapID());
 
     glViewport(0, 0, 2048, 2048);
     for (unsigned face = 0; face < 6; face++) {
-        m_cubemapShader.setMat4("view", captureViews[face]);
+        m_cubemapCaptureShader.setMat4("view", captureViews[face]);
         glNamedFramebufferTextureLayer(m_captureFBO, GL_COLOR_ATTACHMENT0, m_envCubemap, 0, face);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        m_scene->cubemap().draw(m_cubemapShader);
+        m_scene->cubemap().draw(m_cubemapCaptureShader);
+    }
+
+    // Convolving cubemap
+    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &m_irradianceMap);
+    glTextureStorage2D(m_irradianceMap, 1, GL_RGB16F, 32, 32);
+    glTextureParameteri(m_irradianceMap, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(m_irradianceMap, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(m_irradianceMap, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(m_irradianceMap, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(m_irradianceMap, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glNamedRenderbufferStorage(captureRBO, GL_DEPTH_COMPONENT24, 32, 32);
+
+    m_cubemapConvolveShader.use();
+    m_cubemapConvolveShader.setSampler("environmentMap", 0);
+    m_cubemapConvolveShader.setMat4("projection", captureProjection);
+    glBindTextureUnit(0, m_envCubemap);
+
+    glViewport(0, 0, 32, 32);
+    for (unsigned face = 0; face < 6; face++) {
+        m_cubemapConvolveShader.setMat4("view", captureViews[face]);
+        glNamedFramebufferTextureLayer(m_captureFBO, GL_COLOR_ATTACHMENT0, m_irradianceMap, 0, face);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        m_scene->cubemap().draw(m_cubemapConvolveShader);
     }
 
     // Setup Ping Pong Framebuffers
@@ -188,6 +213,8 @@ void Renderer::setupFramebuffers()
 
         m_modelShader.setSampler("pointDepthMaps[" + std::to_string(i) + "]", 5 + i);
     }
+
+    m_modelShader.setSampler("irradianceMap", 5 + m_pointDepthMaps.size());
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -389,6 +416,7 @@ void Renderer::beginDraw()
     for (int i = 0; i < m_pointDepthMaps.size(); i++) {
         glBindTextureUnit(5 + i, m_pointDepthMaps[i]);
     }
+    glBindTextureUnit(5 + m_pointDepthMaps.size(), m_irradianceMap);
 
     glBindVertexArray(m_screenQuadVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);

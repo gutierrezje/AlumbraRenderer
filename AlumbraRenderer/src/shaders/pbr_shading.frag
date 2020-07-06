@@ -41,6 +41,8 @@ uniform samplerCube pointDepthMaps[4];
 uniform int numPointLights;
 uniform float farPlane;
 
+uniform samplerCube irradianceMap;
+
 vec3 fresnelSchlick(float cosTheta, vec3 F0);
 float DistributionGGX(vec3 N, vec3 H, float roughness);
 float GeometrySchlickGGX(float NdotV, float roughness);
@@ -89,7 +91,12 @@ void main()
         Lo += (kD * albedo / PI + specular) * radiance * NdotL;
     }
 
-    vec3 ambient = vec3(0.03) * albedo;
+    vec3 kS = fresnelSchlick(max(dot(N, V), 0.0), F0);
+    vec3 kD = 1.0 - kS;
+    kD *= 1.0 - metallic;
+    vec3 irradiance = texture(irradianceMap, N).rgb;
+    vec3 diffuse = irradiance * albedo;
+    vec3 ambient = kD * diffuse;
     vec3 color = ambient + Lo;
     
     FragColor = vec4(color, 1.0);

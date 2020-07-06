@@ -22,7 +22,8 @@ private:
     Scene* m_scene;
     Shader m_modelShader;
     Shader m_gBufferShader;
-    Shader m_cubemapShader;
+    Shader m_cubemapCaptureShader;
+    Shader m_cubemapConvolveShader;
     Shader m_skyboxShader;
     Shader m_postProcessShader;
     Shader m_directDepthShader;
@@ -40,6 +41,7 @@ private:
     GLuint m_captureFBO;
 
     GLuint m_envCubemap;
+    GLuint m_irradianceMap;
 
     // Buffer attachments
     GLuint m_directionalDepthMap;

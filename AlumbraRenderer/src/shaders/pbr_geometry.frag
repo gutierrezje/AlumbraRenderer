@@ -42,9 +42,9 @@ void main()
         gNormal = fs_in.Normal;
     }
     // and the diffuse per-fragment color
-    gAlbedo = texture(material.texture_albedo, fs_in.TexCoords);
+    gAlbedo = vec4(vec3(albedo), 1.0);//texture(material.texture_albedo, fs_in.TexCoords);
     // store pbr properties into separate gbuffer texture
-    gMetalRoughAO.r = texture(material.texture_metal, fs_in.TexCoords).r;
-    gMetalRoughAO.g = texture(material.texture_rough, fs_in.TexCoords).r;
+    gMetalRoughAO.r = metallic;//texture(material.texture_metal, fs_in.TexCoords).r;
+    gMetalRoughAO.g = roughness;//texture(material.texture_rough, fs_in.TexCoords).r;
     gMetalRoughAO.b = 1.0;
 }
