@@ -25,6 +25,7 @@ private:
     Shader m_cubemapCaptureShader;
     Shader m_cubemapConvolveShader;
     Shader m_cubemapPrefilterShader;
+    Shader m_brdfPrecomputeShader;
     Shader m_skyboxShader;
     Shader m_postProcessShader;
     Shader m_directDepthShader;
@@ -45,6 +46,7 @@ private:
     GLuint m_environmentMap;
     GLuint m_irradianceMap;
     GLuint m_prefilterMap;
+    GLuint m_brdfLUT;
 
     // Buffer attachments
     GLuint m_directionalDepthMap;

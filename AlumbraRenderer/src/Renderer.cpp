@@ -24,6 +24,15 @@ Renderer::Renderer(Scene* scene)
         0, nullptr, GL_FALSE);
 #endif // _DEBUG
 
+    // Setting up a screen quad to render to
+    auto size = sizeof(fbQuadPos[0]) * fbQuadPos.size() + sizeof(fbQuadTex[0]) * fbQuadTex.size();
+    DataBuffer vbo(size, 6, 2);
+    vbo.addVec3s(fbQuadPos.data());
+    vbo.addVec2s(fbQuadTex.data());
+    VertexArray vao;
+    vao.loadBuffer(vbo, 1);
+    m_screenQuadVAO = vao.vertexArrayID();
+
     setupShaders();
     setupFramebuffers();
     setupUBOs();
@@ -39,6 +48,7 @@ void Renderer::setupShaders()
     m_cubemapCaptureShader.addShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_from_equirect.frag" });
     m_cubemapConvolveShader.addShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_convolve.frag" });
     m_cubemapPrefilterShader.addShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_prefilter.frag" });
+    m_brdfPrecomputeShader.addShaders({ "src/shaders/screen_quad.vert", "src/shaders/brdf_quad.frag" });
     m_postProcessShader.addShaders({ "src/shaders/screen_quad.vert", "src/shaders/screen_quad.frag" });
     m_directDepthShader.addShaders({"src/shaders/directional_depth_map.vert"});
     m_pointDepthShader.addShaders({
@@ -154,6 +164,7 @@ void Renderer::setupFramebuffers()
         m_scene->cubemap().draw(m_cubemapConvolveShader);
     }
 
+    // Environment prefilter
     unsigned maxMipLevels = 5;
     glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &m_prefilterMap);
     glTextureStorage2D(m_prefilterMap, maxMipLevels, GL_RGB16F, 128, 128);
@@ -185,6 +196,24 @@ void Renderer::setupFramebuffers()
             m_scene->cubemap().draw(m_cubemapPrefilterShader);
         }
     }
+
+    // BRDF precompute
+    glCreateTextures(GL_TEXTURE_2D, 1, &m_brdfLUT);
+    glTextureStorage2D(m_brdfLUT, 1, GL_RG16F, 512, 512);
+    glTextureParameteri(m_brdfLUT, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(m_brdfLUT, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(m_brdfLUT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTextureParameteri(m_brdfLUT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glNamedRenderbufferStorage(captureRBO, GL_DEPTH_COMPONENT24, 512, 512);
+    glNamedFramebufferTexture(m_captureFBO, GL_COLOR_ATTACHMENT0, m_brdfLUT, 0);
+    
+    glBindFramebuffer(GL_FRAMEBUFFER, m_captureFBO);
+    glViewport(0, 0, 512, 512);
+    m_brdfPrecomputeShader.use();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glBindVertexArray(m_screenQuadVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
 
     // Setup Ping Pong Framebuffers
     glCreateFramebuffers(2, m_pingPongFBOs);
@@ -251,6 +280,7 @@ void Renderer::setupFramebuffers()
 
     m_modelShader.setSampler("irradianceMap", 5 + m_pointDepthMaps.size());
     m_modelShader.setSampler("prefilterMap", 5 + m_pointDepthMaps.size() + 1);
+    m_modelShader.setSampler("brdfLUT", 5 + m_pointDepthMaps.size() + 2);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -260,15 +290,6 @@ void Renderer::setupFramebuffers()
     m_postProcessShader.use();
     m_postProcessShader.setSampler("sceneTexture", 0);
     m_postProcessShader.setSampler("bloomTexture", 1);
-    
-    // Setting up a screen quad to render to
-    auto size = sizeof(fbQuadPos[0]) * fbQuadPos.size() + sizeof(fbQuadTex[0])  * fbQuadTex.size();
-    DataBuffer vbo(size, 6, 2);
-    vbo.addVec3s(fbQuadPos.data());
-    vbo.addVec2s(fbQuadTex.data());
-    VertexArray vao;
-    vao.loadBuffer(vbo, 1);
-    m_screenQuadVAO = vao.vertexArrayID();
 }
 
 void Renderer::setupUBOs()
@@ -454,6 +475,7 @@ void Renderer::beginDraw()
     }
     glBindTextureUnit(5 + m_pointDepthMaps.size(), m_irradianceMap);
     glBindTextureUnit(5 + m_pointDepthMaps.size() + 1, m_prefilterMap);
+    glBindTextureUnit(5 + m_pointDepthMaps.size() + 2, m_brdfLUT);
 
     glBindVertexArray(m_screenQuadVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
