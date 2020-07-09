@@ -2,7 +2,7 @@
 
 layout (location = 0) out vec3 gPosition;
 layout (location = 1) out vec3 gNormal;
-layout (location = 2) out vec4 gAlbedo;
+layout (location = 2) out vec3 gAlbedo;
 layout (location = 3) out vec3 gMetalRoughAO;
 
 in VS_OUT {
@@ -42,7 +42,7 @@ void main()
         gNormal = fs_in.Normal;
     }
     // and the diffuse per-fragment color
-    gAlbedo = vec4(vec3(albedo), 1.0);//texture(material.texture_albedo, fs_in.TexCoords);
+    gAlbedo = vec3(albedo);//texture(material.texture_albedo, fs_in.TexCoords);
     // store pbr properties into separate gbuffer texture
     gMetalRoughAO.r = metallic;//texture(material.texture_metal, fs_in.TexCoords).r;
     gMetalRoughAO.g = roughness;//texture(material.texture_rough, fs_in.TexCoords).r;

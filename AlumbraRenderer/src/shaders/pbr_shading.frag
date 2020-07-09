@@ -119,6 +119,8 @@ void main()
         BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
 }
 
+// Unmodified Schlick approximation of Fresnel reflectance, interpolating between the characteristic
+// specular color F0 and white, resulting in the whiter reflections at glancing angles
 vec3 fresnelSchlick(float cosTheta, vec3 F0)
 {
     return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
@@ -129,6 +131,7 @@ vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
+// Trowbridge-Reitz/GGX NDF that uses Disney's model for remapping roughness
 float distributionGGX(vec3 N, vec3 H, float roughness)
 {
     float a      = roughness*roughness;
@@ -143,6 +146,7 @@ float distributionGGX(vec3 N, vec3 H, float roughness)
     return num / denom;
 }
 
+// Smith G1 function approximation proposed by Epic Games
 float geometrySchlickGGX(float NdotV, float roughness)
 {
     float r = (roughness + 1.0);
@@ -154,6 +158,7 @@ float geometrySchlickGGX(float NdotV, float roughness)
     return num / denom;
 }
 
+// Smith G2 function of the separable form
 float geometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 {
     float NdotV = max(dot(N, V), 0.0);

@@ -2,24 +2,35 @@
 #include "Texture.h"
 #include <stb_image.h>
 
-Texture::Texture()
-    : m_textureID(0)
+TextureLoader::TextureLoader() : m_textureID(0) {}
+
+TextureLoader::~TextureLoader() {}
+
+void TextureLoader::createNew(GLenum target, TextureOptions texOps)
 {
-    
+    glCreateTextures(target, 1, &m_textureID);
+    glTextureParameteri(m_textureID, GL_TEXTURE_MIN_FILTER, texOps.minFilter);
+    glTextureParameteri(m_textureID, GL_TEXTURE_MAG_FILTER, texOps.magFilter);
+    glTextureParameteri(m_textureID, GL_TEXTURE_WRAP_S, texOps.wrapS);
+    glTextureParameteri(m_textureID, GL_TEXTURE_WRAP_T, texOps.wrapT);
+    if (target == GL_TEXTURE_CUBE_MAP)
+        glTextureParameteri(m_textureID, GL_TEXTURE_WRAP_R, texOps.wrapR);
 }
 
-Texture::~Texture() {}
-
-// utility function for loading a 2D texture from file
-// ---------------------------------------------------
-void Texture::loadTexture(const std::string& path, bool gamma)
+GLuint TextureLoader::emptyTexture(GLenum format, GLsizei width, GLsizei height, GLsizei levels)
 {
-    glCreateTextures(GL_TEXTURE_2D, 1, &m_textureID);
+    glTextureStorage2D(m_textureID, levels, format, width, height);
 
-    glTextureParameteri(m_textureID, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTextureParameteri(m_textureID, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTextureParameteri(m_textureID, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTextureParameteri(m_textureID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    return m_textureID;
+}
+
+void TextureLoader::fileTexture(const std::string& path)
+{
+    TextureOptions texOps;
+    texOps.wrapS = GL_REPEAT;
+    texOps.wrapT = GL_REPEAT;
+
+    createNew(GL_TEXTURE_2D, texOps);
 
     m_path = path;
     int width, height, nrComponents;
@@ -39,7 +50,6 @@ void Texture::loadTexture(const std::string& path, bool gamma)
             internalFormat = GL_SRGB8_ALPHA8;
         }
         else
-            // TODO: Log
             std::cout << "Texture Error: Unsupported image format\n";
 
         glTextureStorage2D(m_textureID, 1, internalFormat, width, height);
@@ -49,13 +59,12 @@ void Texture::loadTexture(const std::string& path, bool gamma)
         stbi_image_free(data);
     }
     else {
-        // TODO: Log
         std::cout << "Texture failed to load at path: " << path << std::endl;
         stbi_image_free(data);
     }
 }
 
-void Texture::bind(int index)
+void TextureLoader::bind(int index)
 {
     glBindTextureUnit(index, m_textureID);
 }

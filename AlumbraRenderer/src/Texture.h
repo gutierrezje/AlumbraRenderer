@@ -1,15 +1,28 @@
 #pragma once
 
-class Texture {
+struct TextureOptions {
+    GLint minFilter;
+    GLint magFilter;
+    GLint wrapS;
+    GLint wrapT;
+    GLint wrapR;
+
+    TextureOptions() : minFilter(GL_LINEAR), magFilter(GL_LINEAR),
+        wrapS(GL_CLAMP_TO_EDGE), wrapT(GL_CLAMP_TO_EDGE), wrapR(GL_CLAMP_TO_EDGE) {}
+};
+
+class TextureLoader {
 public:
-    Texture();
-    ~Texture();
-    void loadTexture(const std::string& path, bool gamma = false);
+    TextureLoader();
+    ~TextureLoader();
+    void createNew(GLenum target, TextureOptions texOps);
+    GLuint emptyTexture(GLenum format, GLsizei width, GLsizei height, GLsizei levels = 1);
+    void fileTexture(const std::string& path);
     void bind(int index);
-    inline unsigned int textureID() const { return m_textureID; }
-    inline std::string& path() { return m_path; }
+    inline GLuint textureID() const { return m_textureID; }
+    inline const std::string& path() { return m_path; }
 
 private:
-    unsigned int m_textureID;
+    GLuint m_textureID;
     std::string m_path;
 };

@@ -7,12 +7,12 @@ Cube::Cube(const std::string& diffTexPath, const std::string& specTexPath, const
     m_normals = cubeNormals;
     m_texCoords = cubeTexCoords;
 
-    Texture texture;
-    texture.loadTexture(diffTexPath);
+    TextureLoader texture;
+    texture.fileTexture(diffTexPath);
     m_textures.push_back({ texture.textureID(), "texture_diffuse", texture.path() });
 
     if (specTexPath != "") {
-        texture.loadTexture(specTexPath);
+        texture.fileTexture(specTexPath);
         m_textures.push_back({ texture.textureID(), "texture_specular", texture.path() });
     }
     else {
@@ -21,7 +21,7 @@ Cube::Cube(const std::string& diffTexPath, const std::string& specTexPath, const
     }
 
     if (normTexPath != "") {
-        texture.loadTexture(normTexPath);
+        texture.fileTexture(normTexPath);
         m_textures.push_back({ texture.textureID(), "texture_normal", texture.path() });
         
         for (auto i = 0ll; i < m_positions.size(); i += 3ll) {
@@ -64,12 +64,12 @@ Quad::Quad(const std::string& diffTexPath, const std::string& specTexPath, const
     m_normals = quadNormals;
     m_texCoords = quadTexCoords;
 
-    Texture texture;
-    texture.loadTexture(diffTexPath);
+    TextureLoader texture;
+    texture.fileTexture(diffTexPath);
     m_textures.push_back({ texture.textureID(), "texture_diffuse", texture.path() });
 
     if (specTexPath != "") {
-        texture.loadTexture(specTexPath);
+        texture.fileTexture(specTexPath);
         m_textures.push_back({ texture.textureID(), "texture_specular", texture.path() });
     }
     else {
@@ -78,7 +78,7 @@ Quad::Quad(const std::string& diffTexPath, const std::string& specTexPath, const
     }
 
     if (normTexPath != "") {
-        texture.loadTexture(normTexPath);
+        texture.fileTexture(normTexPath);
         m_textures.push_back({ texture.textureID(), "texture_normal", texture.path() });
     }
     else {
@@ -167,16 +167,16 @@ Sphere::Sphere()
         }
     }
 
-    Texture texture;
-    texture.loadTexture("res/textures/rusted_iron/rustediron2_basecolor.png");
+    TextureLoader texture;
+    texture.fileTexture("res/textures/rusted_iron/rustediron2_basecolor.png");
     m_textures.push_back({ texture.textureID(), "texture_albedo", texture.path() });
 
     // TODO: Figure out how to do tangent space if actual bump mapping is needed
 
-    texture.loadTexture("res/textures/rusted_iron/rustediron2_metallic.png");
+    texture.fileTexture("res/textures/rusted_iron/rustediron2_metallic.png");
     m_textures.push_back({ texture.textureID(), "texture_metal", texture.path() });
 
-    texture.loadTexture("res/textures/rusted_iron/rustediron2_roughness.png");
+    texture.fileTexture("res/textures/rusted_iron/rustediron2_roughness.png");
     m_textures.push_back({ texture.textureID(), "texture_rough", texture.path() });
 
     m_positions = vertices;

@@ -52,6 +52,7 @@ vec3 importanceSampleGGX(vec2 Xi, vec3 N, float roughness)
 	return normalize(sampleVec);
 }
 
+// Note the change in roughness mapping, as Disney's causes IBL at glancing angles to be too dark
 float geometrySchlickGGX(float NdotV, float roughness)
 {
     float a = roughness;

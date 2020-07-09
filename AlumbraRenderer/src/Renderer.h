@@ -32,15 +32,14 @@ private:
     Shader m_pointDepthShader;
     Shader m_blurShader;
 
-    Framebuffer m_fbo;
+    Framebuffer m_mainBuffer, m_gBuffer, m_directDepthBuffer, m_captureBuffer, m_pingBuffer, m_pongBuffer;
     GLuint m_screenQuadVAO;
     
     // Framebuffers
     GLuint m_directionalDepthFBO;
     std::vector<GLuint> m_pointDepthFBOs;
-    GLuint m_pingPongFBOs[2]{ 0,0 };
     GLuint m_gBufferFBO;
-    GLuint m_captureFBO;
+    //GLuint m_captureFBO;
 
     // TODO: make a cubemap class for these
     GLuint m_environmentMap;
@@ -51,16 +50,16 @@ private:
     // Buffer attachments
     GLuint m_directionalDepthMap;
     std::vector<GLuint> m_pointDepthMaps;
-    GLuint m_pingPongBuffers[2]{ 0,0 };
-    GLuint m_gPosition;
-    GLuint m_gNormal;
-    GLuint m_gAlbedoSpec;
-    GLuint m_gMetalRoughAO;
-    GLuint m_gDepthMap;
+    //GLuint m_gPosition;
+    //GLuint m_gNormal;
+    //GLuint m_gAlbedoSpec;
+    //GLuint m_gMetalRoughAO;
+    //GLuint m_gDepthMap;
 
     // Settings
     // TODO: Maybe this should be part of the Camera or Scene class
     float m_exposure = 1.0f;
+    glm::vec3 m_albedo = glm::vec3(1.0f, 0.782f, 0.344f);
 
     void setupShaders();
     void setupFramebuffers();

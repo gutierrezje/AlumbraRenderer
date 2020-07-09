@@ -122,7 +122,7 @@ void Window::processInput(float deltaTime)
         g_camera.processKeyboard(RIGHT, deltaTime);
     if (glfwGetKey(m_window, GLFW_KEY_SPACE) == GLFW_PRESS)
         g_camera.processKeyboard(UP, deltaTime);
-    if (glfwGetKey(m_window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS)
+    if (glfwGetKey(m_window, GLFW_KEY_C) == GLFW_PRESS)
         g_camera.processKeyboard(DOWN, deltaTime);
 }
 

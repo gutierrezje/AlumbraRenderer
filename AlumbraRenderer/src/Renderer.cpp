@@ -6,7 +6,6 @@
 
 Renderer::Renderer(Scene* scene)
     : m_scene(scene)
-    , m_fbo()
     , m_pointDepthFBOs(scene->pointLights().size(), 0)
     , m_pointDepthMaps(scene->pointLights().size(), 0)
 {
@@ -60,60 +59,40 @@ void Renderer::setupShaders()
 
 void Renderer::setupFramebuffers()
 {
-    // TODO: Unify these setup routines under the Framebuffer class
+    TextureLoader texLoader;
+    TextureOptions texOps;
+    texOps.minFilter = GL_NEAREST;
+    texOps.magFilter = GL_NEAREST;
+
+    texLoader.createNew(GL_TEXTURE_2D, texOps);
+    GLuint sceneBuffer = texLoader.emptyTexture(GL_RGBA16F, Window::width(), Window::height());
+    texLoader.createNew(GL_TEXTURE_2D, texOps);
+    GLuint blurBuffer = texLoader.emptyTexture(GL_RGBA16F, Window::width(), Window::height());
+    m_mainBuffer.attachColorBuffers({ sceneBuffer, blurBuffer });
+    m_mainBuffer.attachRenderbuffer(Window::width(), Window::height());
+    
     // Setup GBuffer
-    glCreateTextures(GL_TEXTURE_2D, 1, &m_gPosition);
-    glTextureStorage2D(m_gPosition, 1, GL_RGBA16F, Window::width(), Window::height());
-    glTextureParameteri(m_gPosition, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(m_gPosition, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    glCreateTextures(GL_TEXTURE_2D, 1, &m_gNormal);
-    glTextureStorage2D(m_gNormal, 1, GL_RGBA16F, Window::width(), Window::height());
-    glTextureParameteri(m_gNormal, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(m_gNormal, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    glCreateTextures(GL_TEXTURE_2D, 1, &m_gAlbedoSpec);
-    glTextureStorage2D(m_gAlbedoSpec, 1, GL_SRGB8_ALPHA8, Window::width(), Window::height());
-    glTextureParameteri(m_gAlbedoSpec, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(m_gAlbedoSpec, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    glCreateTextures(GL_TEXTURE_2D, 1, &m_gMetalRoughAO);
-    glTextureStorage2D(m_gMetalRoughAO, 1, GL_RGBA16F, Window::width(), Window::height());
-    glTextureParameteri(m_gMetalRoughAO, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(m_gMetalRoughAO, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    glCreateRenderbuffers(1, &m_gDepthMap);
-    glNamedRenderbufferStorage(m_gDepthMap, GL_DEPTH24_STENCIL8, Window::width(), Window::height());
-
-    // Add attachments to GBuffer
-    glCreateFramebuffers(1, &m_gBufferFBO);
-    glNamedFramebufferTexture(m_gBufferFBO, GL_COLOR_ATTACHMENT0, m_gPosition, 0);
-    glNamedFramebufferTexture(m_gBufferFBO, GL_COLOR_ATTACHMENT1, m_gNormal, 0);
-    glNamedFramebufferTexture(m_gBufferFBO, GL_COLOR_ATTACHMENT2, m_gAlbedoSpec, 0);
-    glNamedFramebufferTexture(m_gBufferFBO, GL_COLOR_ATTACHMENT3, m_gMetalRoughAO, 0);
-    glNamedFramebufferRenderbuffer(m_gBufferFBO, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_gDepthMap);
-    // Setting multiple render targets
-    glBindFramebuffer(GL_FRAMEBUFFER, m_gBufferFBO);
-    GLuint attachments[4] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
-    glDrawBuffers(4, attachments);
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        std::cout << "GBuffer Framebuffer not complete!\n";
-
+    texOps.wrapS = GL_REPEAT;
+    texOps.wrapT = GL_REPEAT;
+    texLoader.createNew(GL_TEXTURE_2D, texOps);
+    GLuint gPosition = texLoader.emptyTexture(GL_RGB16F, Window::width(), Window::height());
+    texLoader.createNew(GL_TEXTURE_2D, texOps);
+    GLuint gNormal = texLoader.emptyTexture(GL_RGB16F, Window::width(), Window::height());
+    texLoader.createNew(GL_TEXTURE_2D, texOps);
+    GLuint gAlbedo = texLoader.emptyTexture(GL_SRGB8_ALPHA8, Window::width(), Window::height());
+    texLoader.createNew(GL_TEXTURE_2D, texOps);
+    GLuint gMetalRoughAO = texLoader.emptyTexture(GL_RGB16F, Window::width(), Window::height());
+    m_gBuffer.attachColorBuffers({ gPosition, gNormal, gAlbedo, gMetalRoughAO });
+    m_gBuffer.attachRenderbuffer(Window::width(), Window::height());
+    
     // Setup Capture Framebuffer
-    glCreateFramebuffers(1, &m_captureFBO);
-    glBindFramebuffer(GL_FRAMEBUFFER, m_captureFBO);
-    GLuint captureRBO;
-    glCreateRenderbuffers(1, &captureRBO);
-    glNamedRenderbufferStorage(captureRBO, GL_DEPTH_COMPONENT24, 2048, 2048);
-    glNamedFramebufferRenderbuffer(m_captureFBO, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, captureRBO);
-
-    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &m_environmentMap);
-    glTextureStorage2D(m_environmentMap, 1, GL_RGB16F, 2048, 2048);
-    glTextureParameteri(m_environmentMap, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(m_environmentMap, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(m_environmentMap, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(m_environmentMap, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTextureParameteri(m_environmentMap, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    texOps.minFilter = GL_LINEAR_MIPMAP_LINEAR;
+    texOps.magFilter = GL_LINEAR;
+    texOps.wrapS = GL_CLAMP_TO_EDGE;
+    texOps.wrapT = GL_CLAMP_TO_EDGE;
+    texLoader.createNew(GL_TEXTURE_CUBE_MAP, texOps);
+    m_environmentMap = texLoader.emptyTexture(GL_RGB16F, 2048, 2048);
+    m_captureBuffer.attachRenderbuffer(2048, 2048);
 
     glm::mat4 captureProjection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
     glm::mat4 captureViews[6]{
@@ -131,24 +110,21 @@ void Renderer::setupFramebuffers()
     glBindTextureUnit(0, m_scene->cubemap().cubmapID());
 
     glViewport(0, 0, 2048, 2048);
+    m_captureBuffer.bindAs(GL_FRAMEBUFFER);
     for (unsigned face = 0; face < 6; face++) {
         m_cubemapCaptureShader.setMat4("view", captureViews[face]);
-        glNamedFramebufferTextureLayer(m_captureFBO, GL_COLOR_ATTACHMENT0, m_environmentMap, 0, face);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glNamedFramebufferTextureLayer(m_captureBuffer.id(), GL_COLOR_ATTACHMENT0, m_environmentMap, 0, face);
+        m_captureBuffer.clear();
 
         m_scene->cubemap().draw(m_cubemapCaptureShader);
     }
     glGenerateTextureMipmap(m_environmentMap);
 
     // Convolving cubemap
-    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &m_irradianceMap);
-    glTextureStorage2D(m_irradianceMap, 1, GL_RGB16F, 32, 32);
-    glTextureParameteri(m_irradianceMap, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(m_irradianceMap, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(m_irradianceMap, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(m_irradianceMap, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTextureParameteri(m_irradianceMap, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glNamedRenderbufferStorage(captureRBO, GL_DEPTH_COMPONENT24, 32, 32);
+    texOps.minFilter = GL_LINEAR;
+    texLoader.createNew(GL_TEXTURE_CUBE_MAP, texOps);
+    m_irradianceMap = texLoader.emptyTexture(GL_RGB16F, 32, 32);
+    m_captureBuffer.resizeRB(32, 32);
 
     m_cubemapConvolveShader.use();
     m_cubemapConvolveShader.setSampler("environmentMap", 0);
@@ -158,21 +134,17 @@ void Renderer::setupFramebuffers()
     glViewport(0, 0, 32, 32);
     for (unsigned face = 0; face < 6; face++) {
         m_cubemapConvolveShader.setMat4("view", captureViews[face]);
-        glNamedFramebufferTextureLayer(m_captureFBO, GL_COLOR_ATTACHMENT0, m_irradianceMap, 0, face);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glNamedFramebufferTextureLayer(m_captureBuffer.id(), GL_COLOR_ATTACHMENT0, m_irradianceMap, 0, face);
+        m_captureBuffer.clear();
 
         m_scene->cubemap().draw(m_cubemapConvolveShader);
     }
 
     // Environment prefilter
     unsigned maxMipLevels = 5;
-    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &m_prefilterMap);
-    glTextureStorage2D(m_prefilterMap, maxMipLevels, GL_RGB16F, 128, 128);
-    glTextureParameteri(m_prefilterMap, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(m_prefilterMap, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(m_prefilterMap, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(m_prefilterMap, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTextureParameteri(m_prefilterMap, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    texOps.minFilter = GL_LINEAR_MIPMAP_LINEAR;
+    texLoader.createNew(GL_TEXTURE_CUBE_MAP, texOps);
+    m_prefilterMap = texLoader.emptyTexture(GL_RGB16F, 128, 128, maxMipLevels);
     glGenerateTextureMipmap(m_prefilterMap);
 
     m_cubemapPrefilterShader.use();
@@ -183,52 +155,47 @@ void Renderer::setupFramebuffers()
     for (unsigned mip = 0; mip < maxMipLevels; mip++) {
         unsigned mipWidth = 128 * std::pow(0.5, mip);
         unsigned mipHeight = 128 * std::pow(0.5, mip);
-        glNamedRenderbufferStorage(captureRBO, GL_DEPTH_COMPONENT24, mipWidth, mipHeight);
+        m_captureBuffer.resizeRB(mipWidth, mipHeight);
         glViewport(0, 0, mipWidth, mipHeight);
 
         float roughness = (float)mip / (float)(maxMipLevels - 1);
         m_cubemapPrefilterShader.setFloat("roughness", roughness);
         for (unsigned face = 0; face < 6; face++) {
             m_cubemapPrefilterShader.setMat4("view", captureViews[face]);
-            glNamedFramebufferTextureLayer(m_captureFBO, GL_COLOR_ATTACHMENT0, m_prefilterMap, mip, face);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glNamedFramebufferTextureLayer(m_captureBuffer.id(), GL_COLOR_ATTACHMENT0, m_prefilterMap, mip, face);
+            m_captureBuffer.clear();
 
             m_scene->cubemap().draw(m_cubemapPrefilterShader);
         }
     }
 
     // BRDF precompute
-    glCreateTextures(GL_TEXTURE_2D, 1, &m_brdfLUT);
-    glTextureStorage2D(m_brdfLUT, 1, GL_RG16F, 512, 512);
-    glTextureParameteri(m_brdfLUT, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(m_brdfLUT, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(m_brdfLUT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTextureParameteri(m_brdfLUT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    texOps.minFilter = GL_LINEAR;
+    texLoader.createNew(GL_TEXTURE_2D, texOps);
+    m_brdfLUT = texLoader.emptyTexture(GL_RG16F, 512, 512);
+    m_captureBuffer.attachColorBuffers({ m_brdfLUT });
+    m_captureBuffer.resizeRB(512, 512);
 
-    glNamedRenderbufferStorage(captureRBO, GL_DEPTH_COMPONENT24, 512, 512);
-    glNamedFramebufferTexture(m_captureFBO, GL_COLOR_ATTACHMENT0, m_brdfLUT, 0);
-    
-    glBindFramebuffer(GL_FRAMEBUFFER, m_captureFBO);
+    m_captureBuffer.bindAs(GL_FRAMEBUFFER);
     glViewport(0, 0, 512, 512);
     m_brdfPrecomputeShader.use();
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    m_captureBuffer.clear();
     glBindVertexArray(m_screenQuadVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
     // Setup Ping Pong Framebuffers
-    glCreateFramebuffers(2, m_pingPongFBOs);
-    glCreateTextures(GL_TEXTURE_2D, 2, m_pingPongBuffers);
-    for (int i = 0; i < 2; i++) {
-        glTextureStorage2D(m_pingPongBuffers[i], 1, GL_RGBA16F, Window::width(), Window::height());
-        glTextureParameteri(m_pingPongBuffers[i], GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTextureParameteri(m_pingPongBuffers[i], GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTextureParameteri(m_pingPongBuffers[i], GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTextureParameteri(m_pingPongBuffers[i], GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glNamedFramebufferTexture(m_pingPongFBOs[i], GL_COLOR_ATTACHMENT0, m_pingPongBuffers[i], 0);
-        glBindFramebuffer(GL_FRAMEBUFFER, m_pingPongFBOs[i]);
-        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-            std::cout << "Ping Pong Framebuffer not complete!\n";
-    }
+    texOps.minFilter = GL_LINEAR;
+    texOps.magFilter = GL_LINEAR;
+    texOps.wrapS = GL_CLAMP_TO_EDGE;
+    texOps.wrapT = GL_CLAMP_TO_EDGE;
+    texLoader.createNew(GL_TEXTURE_2D, texOps);
+    GLuint pingTexture = texLoader.emptyTexture(GL_RGBA16F, Window::width(), Window::height());
+    m_pingBuffer.attachColorBuffers({ pingTexture });
+
+    texLoader.createNew(GL_TEXTURE_2D, texOps);
+    GLuint pongTexture = texLoader.emptyTexture(GL_RGBA16F, Window::width(), Window::height());;
+    m_pongBuffer.attachColorBuffers({ pongTexture });
+
     // Setup Directional Depth Framebuffer
     glCreateTextures(GL_TEXTURE_2D, 1, &m_directionalDepthMap);
     glTextureStorage2D(m_directionalDepthMap, 1, GL_DEPTH_COMPONENT24, SHADOW_WIDTH, SHADOW_HEIGHT);
@@ -410,7 +377,8 @@ void Renderer::beginDraw()
     } */
 
     // Geometry Pass
-    glBindFramebuffer(GL_FRAMEBUFFER, m_gBufferFBO);
+    m_gBuffer.bindAs(GL_FRAMEBUFFER);
+    //glBindFramebuffer(GL_FRAMEBUFFER, m_gBufferFBO);
     glClearColor(0.0, 0.0, 0.0, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
@@ -423,13 +391,13 @@ void Renderer::beginDraw()
     m_gBufferShader.setMat4("projection", projectionM);
     m_gBufferShader.setMat4("view", viewM);
 
-    m_gBufferShader.setVec3("albedo", 0.5f, 0.0f, 0.0f);
+    m_gBufferShader.setVec3("albedo", m_albedo);
 
-    for (int i = 0; i < models.size(); i++) {
+    for (auto i = 0; i < models.size(); i++) {
         glm::mat4 model = glm::mat4(1.0f);
-        for (int row = 0; row < nrRows; ++row) {
+        for (auto row = 0; row < nrRows; ++row) {
             m_gBufferShader.setFloat("metallic", (float)row / (float)nrRows);
-            for (int col = 0; col < nrColumns; ++col) {
+            for (auto col = 0; col < nrColumns; ++col) {
                 m_gBufferShader.setFloat("roughness", glm::clamp((float)col / (float)nrColumns, 0.05f, 1.0f));
 
                 model = glm::mat4(1.0f);
@@ -452,11 +420,11 @@ void Renderer::beginDraw()
     }
 
     // Deferred shading pass
-    m_fbo.bind();
-    m_fbo.clear();
-    m_modelShader.use();
+    m_mainBuffer.bindAs(GL_FRAMEBUFFER);
+    m_mainBuffer.clear();
 
     // Lighting
+    m_modelShader.use();
     m_modelShader.setVec3("directLight.direction", directLight.direction);
     m_modelShader.setVec3("directLight.color", directLight.color);
     m_modelShader.setFloat("directLight.intensity", directLight.intensity);
@@ -465,13 +433,13 @@ void Renderer::beginDraw()
     m_modelShader.setVec3("viewPos", g_camera.position());
     m_modelShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
     m_modelShader.setFloat("farPlane", far);
-    glBindTextureUnit(0, m_gPosition);
-    glBindTextureUnit(1, m_gNormal);
-    glBindTextureUnit(2, m_gAlbedoSpec);
-    glBindTextureUnit(3, m_gMetalRoughAO);
+
+    for (auto i = 0; i < m_gBuffer.colorBuffers().size(); i++) {
+        glBindTextureUnit(i, m_gBuffer.colorBuffer(i));
+    }
     glBindTextureUnit(4, m_directionalDepthMap);
-    for (int i = 0; i < m_pointDepthMaps.size(); i++) {
-        glBindTextureUnit(5 + i, m_pointDepthMaps[i]);
+    for (auto i = 0; i < m_pointDepthMaps.size(); i++) {
+        glBindTextureUnit(i + 5, m_pointDepthMaps[i]);
     }
     glBindTextureUnit(5 + m_pointDepthMaps.size(), m_irradianceMap);
     glBindTextureUnit(5 + m_pointDepthMaps.size() + 1, m_prefilterMap);
@@ -480,11 +448,11 @@ void Renderer::beginDraw()
     glBindVertexArray(m_screenQuadVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_gBufferFBO);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_fbo.id());
+    m_gBuffer.bindAs(GL_READ_FRAMEBUFFER);
+    m_mainBuffer.bindAs(GL_DRAW_FRAMEBUFFER);
     glBlitFramebuffer(0, 0, Window::width(), Window::height(),
         0, 0, Window::width(), Window::height(), GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-    m_fbo.bind();
+    m_mainBuffer.bindAs(GL_FRAMEBUFFER);
     // Draw cubemap
     glm::mat4 cmView = glm::mat4(glm::mat3(viewM));
     m_skyboxShader.use();
@@ -495,29 +463,39 @@ void Renderer::beginDraw()
     m_scene->cubemap().draw(m_skyboxShader);
 
     glDisable(GL_DEPTH_TEST);
-    bool horizontal = true, firstIteration = true;
+    bool horizontal = true;
     int amount = 10;
+    GLuint currentBuffer = m_mainBuffer.colorBuffer(1);
+    m_pongBuffer.bindAs(GL_FRAMEBUFFER);
     m_blurShader.use();
-    for (int i = 0; i < amount; i++) {
-        glBindFramebuffer(GL_FRAMEBUFFER, m_pingPongFBOs[horizontal]);
-        m_blurShader.setInt("horizontal", horizontal);
-        auto currentBuffer = firstIteration ? m_fbo.colorBuffer(1) : m_pingPongBuffers[!horizontal];
-        // Render to a buffer quad
+    for (auto i = 0; i < amount; i++) {
+        m_blurShader.setBool("horizontal", horizontal);
         glBindTextureUnit(0, currentBuffer);
         glBindVertexArray(m_screenQuadVAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         horizontal = !horizontal;
-        if (firstIteration)
-            firstIteration = false;
+        if (horizontal) {
+            m_pongBuffer.bindAs(GL_FRAMEBUFFER);
+            currentBuffer = m_pingBuffer.colorBuffer(0);
+        }
+        else {
+            m_pingBuffer.bindAs(GL_FRAMEBUFFER);
+            currentBuffer = m_pongBuffer.colorBuffer(0);
+        }
     }
 
+    // Now rendering to default buffer with post processing
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glEnable(GL_FRAMEBUFFER_SRGB);
     glClear(GL_COLOR_BUFFER_BIT);
     m_postProcessShader.use();
     glBindVertexArray(m_screenQuadVAO);
-    glBindTextureUnit(0, m_fbo.colorBuffer(0));
-    glBindTextureUnit(1, m_pingPongBuffers[!horizontal]);
+    glBindTextureUnit(0, m_mainBuffer.colorBuffer(0));
+    if (horizontal)
+        glBindTextureUnit(1, m_pingBuffer.colorBuffer(0));
+    else
+        glBindTextureUnit(1, m_pongBuffer.colorBuffer(0));
+    //glBindTextureUnit(1, m_pingPongBuffers[!horizontal]);
     m_postProcessShader.setFloat("exposure", m_exposure);
     m_postProcessShader.setBool("bloom", true);
     glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -538,13 +516,28 @@ void Renderer::drawGUI()
             ImGui::GetIO().Framerate);
         ImGui::Text("Keyboard Controls:");
         ImGui::Text("W/A/S/D - Forward/Left/Back/Right");
-        ImGui::Text("L_ALT/SPACE - Down/Up");
+        ImGui::Text("C/SPACE - Down/Up");
         ImGui::Text("P - Show/Hide Mouse Pointer");
         ImGui::Text("ESC - Exit Program");
 
         ImGui::SliderFloat("- Exposure", &m_exposure, 0.01f, 5.0f);
-        ImGui::SliderFloat("- DirLightFar", &(m_scene->directionalLight().farPlane), 5.0f, 25.0f);
-        ImGui::SliderFloat3("- DirLightPos", glm::value_ptr(m_scene->directionalLight().direction), -10.0f, 10.0f);
+        ImGui::Text("Material");
+        static int matOption = 0;
+        if (ImGui::RadioButton("Gold", &matOption, 0))
+            m_albedo = glm::vec3(1.0f, 0.782f, 0.344f);
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Silver", &matOption, 1))
+            m_albedo = glm::vec3(0.97f, 0.96f, 0.915f);
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Copper", &matOption, 2))
+            m_albedo = glm::vec3(0.955f, 0.637f, 0.538f);
+        if (ImGui::RadioButton("Zinc", &matOption, 3))
+            m_albedo = glm::vec3(0.664f, 0.824f, 0.85f);
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Titanium", &matOption, 4))
+            m_albedo = glm::vec3(0.542f, 0.497f, 0.449f);
+        //ImGui::SliderFloat("- DirLightFar", &(m_scene->directionalLight().farPlane), 5.0f, 25.0f);
+        //ImGui::SliderFloat3("- DirLightPos", glm::value_ptr(m_scene->directionalLight().direction), -10.0f, 10.0f);
 
         ImGui::End();
     }

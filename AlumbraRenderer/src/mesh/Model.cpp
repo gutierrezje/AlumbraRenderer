@@ -124,8 +124,8 @@ std::vector<MeshTexture> Model::loadMaterialTextures(aiMaterial* mat,
             MeshTexture texture;
             std::string filename = std::string(str.C_Str());
             filename = directory + '/' + filename;
-            Texture tex;
-            tex.loadTexture(filename);
+            TextureLoader tex;
+            tex.fileTexture(filename);
             texture.id = tex.textureID();
             texture.type = typeName;
             texture.path = tex.path();
