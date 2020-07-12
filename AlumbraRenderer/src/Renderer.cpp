@@ -34,7 +34,7 @@ Renderer::Renderer(Scene* scene)
 
     setupShaders();
     setupFramebuffers();
-    setupUBOs();
+    setupUniforms();
 }
 
 Renderer::~Renderer() {}
@@ -213,15 +213,6 @@ void Renderer::setupFramebuffers()
     glReadBuffer(GL_NONE);
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "Directional Depth Framebuffer not complete!\n";
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    m_modelShader.use();
-
-    m_modelShader.setSampler("gPosition", 0);
-    m_modelShader.setSampler("gNormal", 1);
-    m_modelShader.setSampler("gAlbedo", 2);
-    m_modelShader.setSampler("gMetalRoughAO", 3);
-    m_modelShader.setSampler("directionalDepthMap", 4);
 
     // Setup Point Depth Framebuffers
     glCreateFramebuffers(m_pointDepthFBOs.size(), m_pointDepthFBOs.data());
@@ -241,15 +232,25 @@ void Renderer::setupFramebuffers()
 
         if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
             std::cout << "Point Depth Framebuffer not complete!\n";
-
-        m_modelShader.setSampler("pointDepthMaps[" + std::to_string(i) + "]", 5 + i);
     }
 
-    m_modelShader.setSampler("irradianceMap", 5 + m_pointDepthMaps.size());
-    m_modelShader.setSampler("prefilterMap", 5 + m_pointDepthMaps.size() + 1);
-    m_modelShader.setSampler("brdfLUT", 5 + m_pointDepthMaps.size() + 2);
-
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void Renderer::setupUniforms()
+{
+    m_modelShader.use();
+    m_modelShader.setSampler("gPosition",           0);
+    m_modelShader.setSampler("gNormal",             1);
+    m_modelShader.setSampler("gAlbedo",             2);
+    m_modelShader.setSampler("gMetalRoughAO",       3);
+    m_modelShader.setSampler("directionalDepthMap", 4);
+    for (int i = 0; i < m_pointDepthMaps.size(); i++) {
+        m_modelShader.setSampler("pointDepthMaps[" + std::to_string(i) + "]", 5 + i);
+    }
+    m_modelShader.setSampler("irradianceMap",   5 + m_pointDepthMaps.size());
+    m_modelShader.setSampler("prefilterMap",    5 + m_pointDepthMaps.size() + 1);
+    m_modelShader.setSampler("brdfLUT",         5 + m_pointDepthMaps.size() + 2);
 
     m_blurShader.use();
     m_blurShader.setSampler("image", 0);
@@ -257,10 +258,7 @@ void Renderer::setupFramebuffers()
     m_postProcessShader.use();
     m_postProcessShader.setSampler("sceneTexture", 0);
     m_postProcessShader.setSampler("bloomTexture", 1);
-}
 
-void Renderer::setupUBOs()
-{
     // Setting up lights UBO
     auto& lights = m_scene->pointLights();
     if (lights.size() != 0) {
@@ -395,21 +393,10 @@ void Renderer::beginDraw()
 
     for (auto i = 0; i < models.size(); i++) {
         glm::mat4 model = glm::mat4(1.0f);
-        for (auto row = 0; row < nrRows; ++row) {
-            m_gBufferShader.setFloat("metallic", (float)row / (float)nrRows);
-            for (auto col = 0; col < nrColumns; ++col) {
-                m_gBufferShader.setFloat("roughness", glm::clamp((float)col / (float)nrColumns, 0.05f, 1.0f));
-
-                model = glm::mat4(1.0f);
-                model = glm::translate(model, glm::vec3(
-                    (col - (nrColumns / 2)) * spacing,
-                    (row - (nrRows / 2)) * spacing,
-                    0.0f
-                ));
-                m_gBufferShader.setMat4("model", model);
-                models[i]->draw(m_gBufferShader);
-            }
-        }
+        m_gBufferShader.setFloat("roughness", m_roughness);
+        m_gBufferShader.setFloat("metallic", m_metallic);
+        m_gBufferShader.setMat4("model", model);
+        models[i]->draw(m_gBufferShader);
 
         //glm::mat4 modelM = glm::mat4(1.0f);
         //modelM = glm::scale(modelM, transforms[i].scale);
@@ -495,7 +482,6 @@ void Renderer::beginDraw()
         glBindTextureUnit(1, m_pingBuffer.colorBuffer(0));
     else
         glBindTextureUnit(1, m_pongBuffer.colorBuffer(0));
-    //glBindTextureUnit(1, m_pingPongBuffers[!horizontal]);
     m_postProcessShader.setFloat("exposure", m_exposure);
     m_postProcessShader.setBool("bloom", true);
     glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -522,6 +508,8 @@ void Renderer::drawGUI()
 
         ImGui::SliderFloat("- Exposure", &m_exposure, 0.01f, 5.0f);
         ImGui::Text("Material");
+        ImGui::SliderFloat("- Metallic", &m_metallic, 0.0f, 1.0f);
+        ImGui::SliderFloat("- Roughness", &m_roughness, 0.0f, 1.0f);
         static int matOption = 0;
         if (ImGui::RadioButton("Gold", &matOption, 0))
             m_albedo = glm::vec3(1.0f, 0.782f, 0.344f);
@@ -537,7 +525,7 @@ void Renderer::drawGUI()
         if (ImGui::RadioButton("Titanium", &matOption, 4))
             m_albedo = glm::vec3(0.542f, 0.497f, 0.449f);
         //ImGui::SliderFloat("- DirLightFar", &(m_scene->directionalLight().farPlane), 5.0f, 25.0f);
-        //ImGui::SliderFloat3("- DirLightPos", glm::value_ptr(m_scene->directionalLight().direction), -10.0f, 10.0f);
+        ImGui::SliderFloat3("- DirLightVec", glm::value_ptr(m_scene->directionalLight().direction), -10.0f, 10.0f);
 
         ImGui::End();
     }

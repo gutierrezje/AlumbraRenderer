@@ -29,10 +29,12 @@ uniform sampler2D gNormal;
 uniform sampler2D gAlbedo;
 uniform sampler2D gMetalRoughAO;
 
+// Directional lighting
 uniform DirectionalLight directLight;
 uniform sampler2D directionalDepthMap;
 uniform mat4 lightSpaceMatrix;
 
+// Punctual lighting
 layout (std140, binding = 2) uniform LightsUBO
 {
     PointLight pointLights[MAX_LIGHTS];
@@ -41,6 +43,7 @@ uniform samplerCube pointDepthMaps[4];
 uniform int numPointLights;
 uniform float farPlane;
 
+// PBR Shading
 uniform samplerCube irradianceMap;
 uniform samplerCube prefilterMap;
 uniform sampler2D brdfLUT;
@@ -50,49 +53,29 @@ vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness);
 float distributionGGX(vec3 N, vec3 H, float roughness);
 float geometrySchlickGGX(float NdotV, float roughness);
 float geometrySmith(vec3 N, vec3 V, vec3 L, float roughness);
-vec3 getNormalFromMap(vec3 WorldPos, vec3 Normal);
+vec3 calcPuncLight(PointLight light, vec3 V, vec3 N, vec3 P, vec3 albedo, vec3 F0, float rough, float metal, int index);
+vec3 calcDirLight(DirectionalLight light, vec3 V, vec3 N, vec3 albedo, vec3 F0, float rough, float metal);
 
 void main()
 {
     vec3 albedo = texture(gAlbedo, TexCoords).rgb;
     float metallic = texture(gMetalRoughAO, TexCoords).r;
     float roughness = texture(gMetalRoughAO, TexCoords).g;
-    vec3 WorldPos = texture(gPosition, TexCoords).rgb;
+    vec3 P = texture(gPosition, TexCoords).rgb;
 
     vec3 N = normalize(texture(gNormal, TexCoords).rgb);
-    vec3 V = normalize(viewPos - WorldPos);
+    vec3 V = normalize(viewPos - P);
     vec3 R = reflect(-V, N);
 
+    // The characteristic specular color, either white or a variable reflectance color, dependent on metallic
     vec3 F0 = vec3(0.04); 
     F0      = mix(F0, albedo, metallic);
     
-    vec3 Lo = vec3(0.0);
+    vec3 Lo = calcDirLight(directLight, V, N, albedo, F0, roughness, metallic);
+    // calculate per-light radiance
     for(int i = 0; i < numPointLights; i++) {
-        // calculate per-light radiance
-        vec3 L = normalize(pointLights[i].position.xyz - WorldPos);
-        vec3 H = normalize(V + L);
-        float distance = length(pointLights[i].position.xyz - WorldPos);
-        // TODO: windowing
-        float attenuation = 1.0 / (distance * distance);
-        vec3 radiance = pointLights[i].color.xyz * pointLights[i].intensity * attenuation;
-
-        // Cook-Torrance BRDF
-        float NDF = distributionGGX(N, H, roughness);   
-        float G   = geometrySmith(N, V, L, roughness);      
-        vec3 F    = fresnelSchlick(clamp(dot(H, V), 0.0, 1.0), F0);
-           
-        vec3 nominator    = NDF * G * F; 
-        float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0);
-        vec3 specular = nominator / max(denominator, 0.001);
-        vec3 kS = F;
-        vec3 kD = vec3(1.0) - kS;
-        kD *= 1.0 - metallic;	  
-
-        // scale light by NdotL
-        float NdotL = max(dot(N, L), 0.0);        
-
         // add to outgoing radiance Lo
-        Lo += (kD * albedo / PI + specular) * radiance * NdotL;
+        Lo += calcPuncLight(pointLights[i], V, N, P, albedo, F0, roughness, metallic, i);
     }
     vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
     
@@ -117,6 +100,62 @@ void main()
         BrightColor = vec4(FragColor.rgb, 1.0);
     else
         BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
+}
+
+vec3 calcPuncLight(PointLight light, vec3 V, vec3 N, vec3 P, vec3 albedo, vec3 F0, float rough, float metal, int index)
+{
+    // Precalcs for light attenuation
+    vec3 lightPos = light.position.xyz;
+    vec3 lightDir = lightPos - P;
+    float lightLen = length(lightDir);
+    float dist2 = lightLen * lightLen;
+    float dist4 = dist2 * dist2;
+    float radius4 = light.radius * light.radius * light.radius * light.radius;
+
+    vec3 L = lightDir / lightLen;
+    vec3 H = normalize(L + V);
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float windowing = clamp(1.0 - dist4 / radius4, 0.0, 1.0);
+    float attenuation = windowing * windowing / (dist2 + 1.0);
+    vec3 radianceIn = light.color.xyz * light.intensity * attenuation;
+
+    float D     = distributionGGX(N, H, rough);
+    float G     = geometrySmith(N, V, L, rough);
+    vec3 F      = fresnelSchlick(clamp(dot(H, V), 0.0, 1.0), F0);
+
+    vec3 numerator      = D * G * F;
+    float denominator   = 4 * NdotV * NdotL;
+    vec3 specular       = numerator / max(denominator, 0.0001);
+
+    vec3 kS = F;
+    vec3 kD = vec3(1.0) - kS;
+    kD *= 1.0 - metal;
+    vec3 radianceOut = (kD * albedo / PI + specular) * radianceIn * NdotL;
+    return radianceOut;
+}
+
+vec3 calcDirLight(DirectionalLight light, vec3 V, vec3 N, vec3 albedo, vec3 F0, float rough, float metal)
+{
+    vec3 L = normalize(-light.direction);
+    vec3 H = normalize(L + V);
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    vec3 radianceIn = light.color * light.intensity;
+
+    float D     = distributionGGX(N, H, rough);
+    float G     = geometrySmith(N, V, L, rough);
+    vec3 F      = fresnelSchlick(clamp(dot(H, V), 0.0, 1.0), F0);
+
+    vec3 numerator      = D * G * F;
+    float denominator   = 4 * NdotV * NdotL;
+    vec3 specular       = numerator / max(denominator, 0.0001);
+
+    vec3 kS = F;
+    vec3 kD = vec3(1.0) - kS;
+    kD *= 1.0 - metal;
+    vec3 radianceOut = (kD * albedo / PI + specular) * radianceIn * NdotL;
+    return radianceOut;
 }
 
 // Unmodified Schlick approximation of Fresnel reflectance, interpolating between the characteristic

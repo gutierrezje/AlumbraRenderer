@@ -3,7 +3,7 @@
 
 Scene::Scene()
     : m_cubemap(Cubemap())
-    , m_dLight(DirectionalLight{ glm::vec3(2.0f, -4.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f), 0.0f, 7.5 })
+    , m_dLight(DirectionalLight{ glm::vec3(2.0f, -4.0f, 1.0f), glm::vec3(1.0f, 1.0f, 1.0f), 1.0f, 7.5 })
 {
     // Setting up models and their transforms
     //m_models.push_back(new Model("res/models/nanosuit/nanosuit.obj"));

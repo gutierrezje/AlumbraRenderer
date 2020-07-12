@@ -35,11 +35,11 @@ private:
     Framebuffer m_mainBuffer, m_gBuffer, m_directDepthBuffer, m_captureBuffer, m_pingBuffer, m_pongBuffer;
     GLuint m_screenQuadVAO;
     
-    // Framebuffers
+    // For shadows
     GLuint m_directionalDepthFBO;
     std::vector<GLuint> m_pointDepthFBOs;
-    GLuint m_gBufferFBO;
-    //GLuint m_captureFBO;
+    GLuint m_directionalDepthMap;
+    std::vector<GLuint> m_pointDepthMaps;
 
     // TODO: make a cubemap class for these
     GLuint m_environmentMap;
@@ -47,23 +47,17 @@ private:
     GLuint m_prefilterMap;
     GLuint m_brdfLUT;
 
-    // Buffer attachments
-    GLuint m_directionalDepthMap;
-    std::vector<GLuint> m_pointDepthMaps;
-    //GLuint m_gPosition;
-    //GLuint m_gNormal;
-    //GLuint m_gAlbedoSpec;
-    //GLuint m_gMetalRoughAO;
-    //GLuint m_gDepthMap;
-
     // Settings
-    // TODO: Maybe this should be part of the Camera or Scene class
+    // TODO: Add to Camera
     float m_exposure = 1.0f;
+    // TODO: Material class
     glm::vec3 m_albedo = glm::vec3(1.0f, 0.782f, 0.344f);
+    float m_roughness = 0.0f;
+    float m_metallic = 1.0f;
 
     void setupShaders();
     void setupFramebuffers();
-    void setupUBOs();
+    void setupUniforms();
 };
 
 void messageCallback(GLenum source,
