@@ -8,10 +8,15 @@ Cube::Cube(const std::string& diffTexPath, const std::string& specTexPath, const
     m_texCoords = cubeTexCoords;
 
     TextureLoader texture;
+    TextureOptions texOps;
+    texOps.wrapS = GL_REPEAT;
+    texOps.wrapT = GL_REPEAT;
+    texture.createNew(GL_TEXTURE_2D, texOps);
     texture.fileTexture(diffTexPath);
     m_textures.push_back({ texture.textureID(), "texture_diffuse", texture.path() });
 
     if (specTexPath != "") {
+        texture.createNew(GL_TEXTURE_2D, texOps);
         texture.fileTexture(specTexPath);
         m_textures.push_back({ texture.textureID(), "texture_specular", texture.path() });
     }
@@ -21,6 +26,7 @@ Cube::Cube(const std::string& diffTexPath, const std::string& specTexPath, const
     }
 
     if (normTexPath != "") {
+        texture.createNew(GL_TEXTURE_2D, texOps);
         texture.fileTexture(normTexPath);
         m_textures.push_back({ texture.textureID(), "texture_normal", texture.path() });
         
@@ -65,10 +71,14 @@ Quad::Quad(const std::string& diffTexPath, const std::string& specTexPath, const
     m_texCoords = quadTexCoords;
 
     TextureLoader texture;
+    TextureOptions texOps;
+    texOps.wrapS = GL_REPEAT;
+    texOps.wrapT = GL_REPEAT;
     texture.fileTexture(diffTexPath);
     m_textures.push_back({ texture.textureID(), "texture_diffuse", texture.path() });
 
     if (specTexPath != "") {
+        texture.createNew(GL_TEXTURE_2D, texOps);
         texture.fileTexture(specTexPath);
         m_textures.push_back({ texture.textureID(), "texture_specular", texture.path() });
     }
@@ -79,6 +89,7 @@ Quad::Quad(const std::string& diffTexPath, const std::string& specTexPath, const
 
     if (normTexPath != "") {
         texture.fileTexture(normTexPath);
+        texture.createNew(GL_TEXTURE_2D, texOps);
         m_textures.push_back({ texture.textureID(), "texture_normal", texture.path() });
     }
     else {
@@ -100,7 +111,7 @@ Sphere::Sphere()
 
     const float PI = 3.1415926f;
     float radius = 1.0f;
-    float sectorCount = 36, stackCount = 18;
+    float sectorCount = 64, stackCount = 32;
 
     float x, y, z, xy;                              // vertex position
     float nx, ny, nz, lengthInv = 1.0f / radius;    // vertex normal
@@ -168,14 +179,21 @@ Sphere::Sphere()
     }
 
     TextureLoader texture;
+    TextureOptions texOps;
+    texOps.wrapS = GL_REPEAT;
+    texOps.wrapT = GL_REPEAT;
+
+    texture.createNew(GL_TEXTURE_2D, texOps);
     texture.fileTexture("res/textures/rusted_iron/rustediron2_basecolor.png");
     m_textures.push_back({ texture.textureID(), "texture_albedo", texture.path() });
 
     // TODO: Figure out how to do tangent space if actual bump mapping is needed
 
+    texture.createNew(GL_TEXTURE_2D, texOps);
     texture.fileTexture("res/textures/rusted_iron/rustediron2_metallic.png");
     m_textures.push_back({ texture.textureID(), "texture_metal", texture.path() });
 
+    texture.createNew(GL_TEXTURE_2D, texOps);
     texture.fileTexture("res/textures/rusted_iron/rustediron2_roughness.png");
     m_textures.push_back({ texture.textureID(), "texture_rough", texture.path() });
 

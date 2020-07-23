@@ -33,12 +33,12 @@ void Framebuffer::attachRenderbuffer(int width, int height) {
         GL_RENDERBUFFER, m_renderbufferID);
 }
 
-void Framebuffer::bindAs(GLenum fbType)
+void Framebuffer::bindAs(GLenum fbType) const
 {
     glBindFramebuffer(fbType, m_framebufferID);
 }
 
-void Framebuffer::unbind()
+void Framebuffer::unbind() const
 {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -56,13 +56,13 @@ bool Framebuffer::isComplete()
     return complete;
 }
 
-void Framebuffer::clear()
+void Framebuffer::clear() const
 {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void Framebuffer::resizeRB(int width, int height)
+void Framebuffer::resizeRB(int width, int height) const
 {
     glNamedRenderbufferStorage(m_renderbufferID, GL_DEPTH_COMPONENT24, width, height);
 }

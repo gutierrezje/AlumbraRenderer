@@ -120,13 +120,16 @@ std::vector<MeshTexture> Model::loadMaterialTextures(aiMaterial* mat,
             }
         }
 
+        TextureLoader tex;
+        TextureOptions texOps;
+        texOps.wrapS = GL_REPEAT;
+        texOps.wrapT = GL_REPEAT;
         if (!skip) { // if texture hasn't been loaded already, load it
             MeshTexture texture;
             std::string filename = std::string(str.C_Str());
             filename = directory + '/' + filename;
-            TextureLoader tex;
-            tex.fileTexture(filename);
-            texture.id = tex.textureID();
+            tex.createNew(GL_TEXTURE_2D, texOps);
+            texture.id = tex.fileTexture(filename);
             texture.type = typeName;
             texture.path = tex.path();
             textures.push_back(texture);

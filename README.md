@@ -8,7 +8,6 @@ Alumbra is a rendering engine for educational purposes
 - Visual Studio 2019
 - STB Image
 - ImGui
-- spdlog
 
 ## Sources
 - [LearnOpenGL](https://learnopengl.com/)

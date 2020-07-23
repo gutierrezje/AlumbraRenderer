@@ -29,12 +29,13 @@ void main()
 
         float NdotL = max(dot(N, L), 0.0);
         if (NdotL > 0.0) {
-            float D = distributionGGX(N, H, roughness);
             float NdotH = max(dot(N, H), 0.0);
             float HdotV = max(dot(H, V), 0.0);
-            float pdf = D * NdotH / ((4.0 * HdotV) + 0.0001);
 
-            float resolution = 512.0;
+            float D = distributionGGX(N, H, roughness);
+            float pdf = D * NdotH / (4.0 * HdotV) + 0.0001;
+
+            float resolution = 1024.0;
             float saTexel = 4.0 * PI / (6.0 * resolution * resolution);
             float saSample = 1.0 / (float(SAMPLE_COUNT) * pdf + 0.0001);
 
@@ -44,7 +45,7 @@ void main()
             totalWeight += NdotL;
         }
     }
-    prefilteredColor = prefilteredColor / totalWeight;
+    prefilteredColor = prefilteredColor / max(totalWeight, 0.001);
 
     FragColor = vec4(prefilteredColor, 1.0);
 }
@@ -94,9 +95,11 @@ float distributionGGX(vec3 N, vec3 H, float roughness)
     float NdotH = max(dot(N, H), 0.0);
     float NdotH2 = NdotH*NdotH;
 
-    float nom   = a2;
-    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
-    denom = PI * denom * denom;
+    float numerator   = a2;
+    float denominator = (NdotH2 * (a2 - 1.0) + 1.0);
+    denominator = PI * denominator * denominator;
 
-    return nom / denom;
+    return numerator / denominator;
 }
+
+

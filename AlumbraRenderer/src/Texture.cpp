@@ -6,7 +6,7 @@ TextureLoader::TextureLoader() : m_textureID(0) {}
 
 TextureLoader::~TextureLoader() {}
 
-void TextureLoader::createNew(GLenum target, TextureOptions texOps)
+void TextureLoader::createNew(GLenum target, const TextureOptions& texOps)
 {
     glCreateTextures(target, 1, &m_textureID);
     glTextureParameteri(m_textureID, GL_TEXTURE_MIN_FILTER, texOps.minFilter);
@@ -24,14 +24,8 @@ GLuint TextureLoader::emptyTexture(GLenum format, GLsizei width, GLsizei height,
     return m_textureID;
 }
 
-void TextureLoader::fileTexture(const std::string& path)
+GLuint TextureLoader::fileTexture(const std::string& path)
 {
-    TextureOptions texOps;
-    texOps.wrapS = GL_REPEAT;
-    texOps.wrapT = GL_REPEAT;
-
-    createNew(GL_TEXTURE_2D, texOps);
-
     m_path = path;
     int width, height, nrComponents;
     unsigned char* data = stbi_load(path.c_str(), &width, &height, &nrComponents, 0);
@@ -62,6 +56,7 @@ void TextureLoader::fileTexture(const std::string& path)
         std::cout << "Texture failed to load at path: " << path << std::endl;
         stbi_image_free(data);
     }
+    return m_textureID;
 }
 
 void TextureLoader::bind(int index)

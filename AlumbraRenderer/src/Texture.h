@@ -15,9 +15,9 @@ class TextureLoader {
 public:
     TextureLoader();
     ~TextureLoader();
-    void createNew(GLenum target, TextureOptions texOps);
+    void createNew(GLenum target, const TextureOptions& texOps);
     GLuint emptyTexture(GLenum format, GLsizei width, GLsizei height, GLsizei levels = 1);
-    void fileTexture(const std::string& path);
+    GLuint fileTexture(const std::string& path);
     void bind(int index);
     inline GLuint textureID() const { return m_textureID; }
     inline const std::string& path() { return m_path; }

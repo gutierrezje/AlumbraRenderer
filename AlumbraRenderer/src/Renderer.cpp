@@ -41,20 +41,20 @@ Renderer::~Renderer() {}
 
 void Renderer::setupShaders()
 {
-    m_modelShader.addShaders({ "src/shaders/pbr_shading.vert", "src/shaders/pbr_shading.frag" });
-    m_gBufferShader.addShaders({ "src/shaders/pbr_geometry.vert", "src/shaders/pbr_geometry.frag" });
-    m_skyboxShader.addShaders({ "src/shaders/skybox.vert", "src/shaders/skybox.frag" });
-    m_cubemapCaptureShader.addShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_from_equirect.frag" });
-    m_cubemapConvolveShader.addShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_convolve.frag" });
-    m_cubemapPrefilterShader.addShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_prefilter.frag" });
-    m_brdfPrecomputeShader.addShaders({ "src/shaders/screen_quad.vert", "src/shaders/brdf_quad.frag" });
-    m_postProcessShader.addShaders({ "src/shaders/screen_quad.vert", "src/shaders/screen_quad.frag" });
-    m_directDepthShader.addShaders({"src/shaders/directional_depth_map.vert"});
-    m_pointDepthShader.addShaders({
+    m_pbrLightingShader.graphicsShaders({ "src/shaders/pbr_shading.vert", "src/shaders/pbr_shading.frag" });
+    m_gBufferShader.graphicsShaders({ "src/shaders/pbr_geometry.vert", "src/shaders/pbr_geometry.frag" });
+    m_skyboxShader.graphicsShaders({ "src/shaders/skybox.vert", "src/shaders/skybox.frag" });
+    m_cubemapCaptureShader.graphicsShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_from_equirect.frag" });
+    m_cubemapConvolveShader.graphicsShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_convolve_irrad.frag" });
+    m_cubemapPrefilterShader.graphicsShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_prefilter_spec.frag" });
+    m_brdfPrecomputeShader.graphicsShaders({ "src/shaders/screen_quad.vert", "src/shaders/brdf_quad.frag" });
+    m_postProcessShader.graphicsShaders({ "src/shaders/screen_quad.vert", "src/shaders/screen_quad.frag" });
+    m_directDepthShader.graphicsShaders({"src/shaders/directional_depth_map.vert"});
+    m_pointDepthShader.graphicsShaders({
         "src/shaders/point_depth_map.vert",
         "src/shaders/point_depth_map.geom",
         "src/shaders/point_depth_map.frag" });
-    m_blurShader.addShaders({ "src/shaders/gaussian_blur.vert", "src/shaders/gaussian_blur.frag" });
+    m_blurShader.graphicsShaders({ "src/shaders/gaussian_blur.vert", "src/shaders/gaussian_blur.frag" });
 }
 
 void Renderer::setupFramebuffers()
@@ -85,97 +85,22 @@ void Renderer::setupFramebuffers()
     m_gBuffer.attachColorBuffers({ gPosition, gNormal, gAlbedo, gMetalRoughAO });
     m_gBuffer.attachRenderbuffer(Window::width(), Window::height());
     
-    // Setup Capture Framebuffer
-    texOps.minFilter = GL_LINEAR_MIPMAP_LINEAR;
+    // Setup IBL environment map
+    m_captureBuffer.attachRenderbuffer(2048, 2048);
+    auto& sceneCubemap = m_scene->cubemap();
+    sceneCubemap.captureEnvironment(m_captureBuffer, m_cubemapCaptureShader);
+    sceneCubemap.irradianceConvolution(m_captureBuffer, m_cubemapConvolveShader);
+    sceneCubemap.specularPrefilter(m_captureBuffer, m_cubemapPrefilterShader);
+
+    // Precompute BRDF Integral
+    texOps.minFilter = GL_LINEAR;
     texOps.magFilter = GL_LINEAR;
     texOps.wrapS = GL_CLAMP_TO_EDGE;
     texOps.wrapT = GL_CLAMP_TO_EDGE;
-    texLoader.createNew(GL_TEXTURE_CUBE_MAP, texOps);
-    m_environmentMap = texLoader.emptyTexture(GL_RGB16F, 2048, 2048);
-    m_captureBuffer.attachRenderbuffer(2048, 2048);
-
-    glm::mat4 captureProjection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
-    glm::mat4 captureViews[6]{
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, -1.0f, 0.0f)),
-        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, -1.0f, 0.0f)),
-    };
-
-    m_cubemapCaptureShader.use();
-    m_cubemapCaptureShader.setSampler("equirectangularMap", 0);
-    m_cubemapCaptureShader.setMat4("projection", captureProjection);
-    glBindTextureUnit(0, m_scene->cubemap().cubmapID());
-
-    glViewport(0, 0, 2048, 2048);
-    m_captureBuffer.bindAs(GL_FRAMEBUFFER);
-    for (unsigned face = 0; face < 6; face++) {
-        m_cubemapCaptureShader.setMat4("view", captureViews[face]);
-        glNamedFramebufferTextureLayer(m_captureBuffer.id(), GL_COLOR_ATTACHMENT0, m_environmentMap, 0, face);
-        m_captureBuffer.clear();
-
-        m_scene->cubemap().draw(m_cubemapCaptureShader);
-    }
-    glGenerateTextureMipmap(m_environmentMap);
-
-    // Convolving cubemap
-    texOps.minFilter = GL_LINEAR;
-    texLoader.createNew(GL_TEXTURE_CUBE_MAP, texOps);
-    m_irradianceMap = texLoader.emptyTexture(GL_RGB16F, 32, 32);
-    m_captureBuffer.resizeRB(32, 32);
-
-    m_cubemapConvolveShader.use();
-    m_cubemapConvolveShader.setSampler("environmentMap", 0);
-    m_cubemapConvolveShader.setMat4("projection", captureProjection);
-    glBindTextureUnit(0, m_environmentMap);
-
-    glViewport(0, 0, 32, 32);
-    for (unsigned face = 0; face < 6; face++) {
-        m_cubemapConvolveShader.setMat4("view", captureViews[face]);
-        glNamedFramebufferTextureLayer(m_captureBuffer.id(), GL_COLOR_ATTACHMENT0, m_irradianceMap, 0, face);
-        m_captureBuffer.clear();
-
-        m_scene->cubemap().draw(m_cubemapConvolveShader);
-    }
-
-    // Environment prefilter
-    unsigned maxMipLevels = 5;
-    texOps.minFilter = GL_LINEAR_MIPMAP_LINEAR;
-    texLoader.createNew(GL_TEXTURE_CUBE_MAP, texOps);
-    m_prefilterMap = texLoader.emptyTexture(GL_RGB16F, 128, 128, maxMipLevels);
-    glGenerateTextureMipmap(m_prefilterMap);
-
-    m_cubemapPrefilterShader.use();
-    m_cubemapPrefilterShader.setSampler("environmentMap", 0);
-    m_cubemapPrefilterShader.setMat4("projection", captureProjection);
-    glBindTextureUnit(0, m_environmentMap);
-
-    for (unsigned mip = 0; mip < maxMipLevels; mip++) {
-        unsigned mipWidth = 128 * std::pow(0.5, mip);
-        unsigned mipHeight = 128 * std::pow(0.5, mip);
-        m_captureBuffer.resizeRB(mipWidth, mipHeight);
-        glViewport(0, 0, mipWidth, mipHeight);
-
-        float roughness = (float)mip / (float)(maxMipLevels - 1);
-        m_cubemapPrefilterShader.setFloat("roughness", roughness);
-        for (unsigned face = 0; face < 6; face++) {
-            m_cubemapPrefilterShader.setMat4("view", captureViews[face]);
-            glNamedFramebufferTextureLayer(m_captureBuffer.id(), GL_COLOR_ATTACHMENT0, m_prefilterMap, mip, face);
-            m_captureBuffer.clear();
-
-            m_scene->cubemap().draw(m_cubemapPrefilterShader);
-        }
-    }
-
-    // BRDF precompute
-    texOps.minFilter = GL_LINEAR;
     texLoader.createNew(GL_TEXTURE_2D, texOps);
     m_brdfLUT = texLoader.emptyTexture(GL_RG16F, 512, 512);
     m_captureBuffer.attachColorBuffers({ m_brdfLUT });
     m_captureBuffer.resizeRB(512, 512);
-
     m_captureBuffer.bindAs(GL_FRAMEBUFFER);
     glViewport(0, 0, 512, 512);
     m_brdfPrecomputeShader.use();
@@ -184,10 +109,6 @@ void Renderer::setupFramebuffers()
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
     // Setup Ping Pong Framebuffers
-    texOps.minFilter = GL_LINEAR;
-    texOps.magFilter = GL_LINEAR;
-    texOps.wrapS = GL_CLAMP_TO_EDGE;
-    texOps.wrapT = GL_CLAMP_TO_EDGE;
     texLoader.createNew(GL_TEXTURE_2D, texOps);
     GLuint pingTexture = texLoader.emptyTexture(GL_RGBA16F, Window::width(), Window::height());
     m_pingBuffer.attachColorBuffers({ pingTexture });
@@ -239,18 +160,18 @@ void Renderer::setupFramebuffers()
 
 void Renderer::setupUniforms()
 {
-    m_modelShader.use();
-    m_modelShader.setSampler("gPosition",           0);
-    m_modelShader.setSampler("gNormal",             1);
-    m_modelShader.setSampler("gAlbedo",             2);
-    m_modelShader.setSampler("gMetalRoughAO",       3);
-    m_modelShader.setSampler("directionalDepthMap", 4);
+    m_pbrLightingShader.use();
+    m_pbrLightingShader.setSampler("gPosition",           0);
+    m_pbrLightingShader.setSampler("gNormal",             1);
+    m_pbrLightingShader.setSampler("gAlbedo",             2);
+    m_pbrLightingShader.setSampler("gMetalRoughAO",       3);
+    m_pbrLightingShader.setSampler("directionalDepthMap", 4);
     for (int i = 0; i < m_pointDepthMaps.size(); i++) {
-        m_modelShader.setSampler("pointDepthMaps[" + std::to_string(i) + "]", 5 + i);
+        m_pbrLightingShader.setSampler("pointDepthMaps[" + std::to_string(i) + "]", 5 + i);
     }
-    m_modelShader.setSampler("irradianceMap",   5 + m_pointDepthMaps.size());
-    m_modelShader.setSampler("prefilterMap",    5 + m_pointDepthMaps.size() + 1);
-    m_modelShader.setSampler("brdfLUT",         5 + m_pointDepthMaps.size() + 2);
+    m_pbrLightingShader.setSampler("irradianceMap",   5 + m_pointDepthMaps.size());
+    m_pbrLightingShader.setSampler("prefilterMap",    5 + m_pointDepthMaps.size() + 1);
+    m_pbrLightingShader.setSampler("brdfLUT",         5 + m_pointDepthMaps.size() + 2);
 
     m_blurShader.use();
     m_blurShader.setSampler("image", 0);
@@ -376,7 +297,6 @@ void Renderer::beginDraw()
 
     // Geometry Pass
     m_gBuffer.bindAs(GL_FRAMEBUFFER);
-    //glBindFramebuffer(GL_FRAMEBUFFER, m_gBufferFBO);
     glClearColor(0.0, 0.0, 0.0, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
@@ -397,13 +317,6 @@ void Renderer::beginDraw()
         m_gBufferShader.setFloat("metallic", m_metallic);
         m_gBufferShader.setMat4("model", model);
         models[i]->draw(m_gBufferShader);
-
-        //glm::mat4 modelM = glm::mat4(1.0f);
-        //modelM = glm::scale(modelM, transforms[i].scale);
-        //modelM = glm::translate(modelM, transforms[i].translate);
-        //
-        //m_gBufferShader.setMat4("model", modelM);
-        //models[i]->draw(m_gBufferShader);
     }
 
     // Deferred shading pass
@@ -411,15 +324,15 @@ void Renderer::beginDraw()
     m_mainBuffer.clear();
 
     // Lighting
-    m_modelShader.use();
-    m_modelShader.setVec3("directLight.direction", directLight.direction);
-    m_modelShader.setVec3("directLight.color", directLight.color);
-    m_modelShader.setFloat("directLight.intensity", directLight.intensity);
-    m_modelShader.setInt("numPointLights", lights.size());
+    m_pbrLightingShader.use();
+    m_pbrLightingShader.setVec3("directLight.direction", directLight.direction);
+    m_pbrLightingShader.setVec3("directLight.color", directLight.color);
+    m_pbrLightingShader.setFloat("directLight.intensity", directLight.intensity);
+    m_pbrLightingShader.setInt("numPointLights", lights.size());
     
-    m_modelShader.setVec3("viewPos", g_camera.position());
-    m_modelShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
-    m_modelShader.setFloat("farPlane", far);
+    m_pbrLightingShader.setVec3("viewPos", g_camera.position());
+    m_pbrLightingShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
+    m_pbrLightingShader.setFloat("farPlane", far);
 
     for (auto i = 0; i < m_gBuffer.colorBuffers().size(); i++) {
         glBindTextureUnit(i, m_gBuffer.colorBuffer(i));
@@ -428,8 +341,9 @@ void Renderer::beginDraw()
     for (auto i = 0; i < m_pointDepthMaps.size(); i++) {
         glBindTextureUnit(i + 5, m_pointDepthMaps[i]);
     }
-    glBindTextureUnit(5 + m_pointDepthMaps.size(), m_irradianceMap);
-    glBindTextureUnit(5 + m_pointDepthMaps.size() + 1, m_prefilterMap);
+    const auto& sceneCubemap = m_scene->cubemap();
+    glBindTextureUnit(5 + m_pointDepthMaps.size(), sceneCubemap.irradianceMap());
+    glBindTextureUnit(5 + m_pointDepthMaps.size() + 1, sceneCubemap.prefilterMap());
     glBindTextureUnit(5 + m_pointDepthMaps.size() + 2, m_brdfLUT);
 
     glBindVertexArray(m_screenQuadVAO);
@@ -446,7 +360,7 @@ void Renderer::beginDraw()
     m_skyboxShader.setMat4("projection", projectionM);
     m_skyboxShader.setMat4("view", cmView);
     m_skyboxShader.setSampler("skybox", 0);
-    glBindTextureUnit(0, m_environmentMap);
+    glBindTextureUnit(0, sceneCubemap.environmentMap());
     m_scene->cubemap().draw(m_skyboxShader);
 
     glDisable(GL_DEPTH_TEST);

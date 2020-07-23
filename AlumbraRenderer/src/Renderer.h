@@ -20,17 +20,9 @@ private:
     const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
 
     Scene* m_scene;
-    Shader m_modelShader;
-    Shader m_gBufferShader;
-    Shader m_cubemapCaptureShader;
-    Shader m_cubemapConvolveShader;
-    Shader m_cubemapPrefilterShader;
-    Shader m_brdfPrecomputeShader;
-    Shader m_skyboxShader;
-    Shader m_postProcessShader;
-    Shader m_directDepthShader;
-    Shader m_pointDepthShader;
-    Shader m_blurShader;
+    Shader m_pbrLightingShader, m_gBufferShader, m_cubemapCaptureShader, m_cubemapConvolveShader,
+        m_cubemapPrefilterShader, m_brdfPrecomputeShader, m_skyboxShader, m_postProcessShader,
+        m_directDepthShader, m_pointDepthShader, m_blurShader;
 
     Framebuffer m_mainBuffer, m_gBuffer, m_directDepthBuffer, m_captureBuffer, m_pingBuffer, m_pongBuffer;
     GLuint m_screenQuadVAO;
@@ -41,10 +33,6 @@ private:
     GLuint m_directionalDepthMap;
     std::vector<GLuint> m_pointDepthMaps;
 
-    // TODO: make a cubemap class for these
-    GLuint m_environmentMap;
-    GLuint m_irradianceMap;
-    GLuint m_prefilterMap;
     GLuint m_brdfLUT;
 
     // Settings
@@ -60,12 +48,7 @@ private:
     void setupUniforms();
 };
 
-void messageCallback(GLenum source,
-    GLenum type,
-    GLuint id,
-    GLenum severity,
-    GLsizei length,
-    const GLchar* message,
+void messageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message,
     const void* userParam);
 
 const std::vector<glm::vec3> fbQuadPos{  

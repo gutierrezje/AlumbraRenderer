@@ -11,7 +11,7 @@ public:
 
     Shader() = default;
 
-    void addShaders(const std::vector<std::string>& shaderFiles);
+    void graphicsShaders(const std::vector<std::string>& shaderFiles);
     void compileProgram(const std::vector<TypedShader>& shaders);
 
     void use() const;

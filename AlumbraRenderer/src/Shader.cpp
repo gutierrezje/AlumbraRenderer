@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "Shader.h"
 
-void Shader::addShaders(const std::vector<std::string>& shaderFiles)
+void Shader::graphicsShaders(const std::vector<std::string>& shaderFiles)
 {
     std::vector<TypedShader> typedShaders;
     for (const auto& shaderFileName : shaderFiles) {

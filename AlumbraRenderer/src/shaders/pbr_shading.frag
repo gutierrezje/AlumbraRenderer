@@ -6,6 +6,7 @@ layout (location = 1) out vec4 BrightColor;
 in vec2 TexCoords;
 
 #define PI 3.14159265359
+#define MAX_REFLECTION_LOD 4.0
 #define MAX_LIGHTS 5
 
 struct DirectionalLight {
@@ -52,7 +53,7 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0);
 vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness);
 float distributionGGX(vec3 N, vec3 H, float roughness);
 float geometrySchlickGGX(float NdotV, float roughness);
-float geometrySmith(vec3 N, vec3 V, vec3 L, float roughness);
+float geometrySmith(float NdotV, float NdotL, float roughness);
 vec3 calcPuncLight(PointLight light, vec3 V, vec3 N, vec3 P, vec3 albedo, vec3 F0, float rough, float metal, int index);
 vec3 calcDirLight(DirectionalLight light, vec3 V, vec3 N, vec3 albedo, vec3 F0, float rough, float metal);
 
@@ -71,25 +72,24 @@ void main()
     vec3 F0 = vec3(0.04); 
     F0      = mix(F0, albedo, metallic);
     
+    // calculate per-light outgoing radiance
     vec3 Lo = calcDirLight(directLight, V, N, albedo, F0, roughness, metallic);
-    // calculate per-light radiance
     for(int i = 0; i < numPointLights; i++) {
-        // add to outgoing radiance Lo
         Lo += calcPuncLight(pointLights[i], V, N, P, albedo, F0, roughness, metallic, i);
     }
+
+    // IBL Lighting
     vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
-    
     vec3 kS = F;
     vec3 kD = 1.0 - kS;
     kD *= 1.0 - metallic;
     vec3 irradiance = texture(irradianceMap, N).rgb;
     vec3 diffuse = irradiance * albedo;
-
-    const float MAX_REFLECTION_LOD = 4.0;
+    
     vec3 prefilteredColor = textureLod(prefilterMap, R, roughness * MAX_REFLECTION_LOD).rgb;
     vec2 brdf = texture(brdfLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
     vec3 specular = prefilteredColor * (F * brdf.x + brdf.y);
-
+    
     vec3 ambient = kD * diffuse + specular;
     vec3 color = ambient + Lo;
     
@@ -110,20 +110,21 @@ vec3 calcPuncLight(PointLight light, vec3 V, vec3 N, vec3 P, vec3 albedo, vec3 F
     float lightLen = length(lightDir);
     float dist2 = lightLen * lightLen;
     float dist4 = dist2 * dist2;
-    float radius4 = light.radius * light.radius * light.radius * light.radius;
+    float radius4 = pow(light.radius, 4.0);
+
+    float windowing = clamp(1.0 - dist4 / radius4, 0.0, 1.0);
+    float attenuation = windowing * windowing / (dist2 + 1.0);
+    vec3 radianceIn = light.color.xyz * light.intensity * attenuation;
 
     vec3 L = lightDir / lightLen;
     vec3 H = normalize(L + V);
     float NdotV = max(dot(N, V), 0.0);
     float NdotL = max(dot(N, L), 0.0);
-    float windowing = clamp(1.0 - dist4 / radius4, 0.0, 1.0);
-    float attenuation = windowing * windowing / (dist2 + 1.0);
-    vec3 radianceIn = light.color.xyz * light.intensity * attenuation;
-
     float D     = distributionGGX(N, H, rough);
-    float G     = geometrySmith(N, V, L, rough);
+    float G     = geometrySmith(NdotV, NdotL, rough);
     vec3 F      = fresnelSchlick(clamp(dot(H, V), 0.0, 1.0), F0);
 
+    // Specular BRDF term
     vec3 numerator      = D * G * F;
     float denominator   = 4 * NdotV * NdotL;
     vec3 specular       = numerator / max(denominator, 0.0001);
@@ -137,14 +138,15 @@ vec3 calcPuncLight(PointLight light, vec3 V, vec3 N, vec3 P, vec3 albedo, vec3 F
 
 vec3 calcDirLight(DirectionalLight light, vec3 V, vec3 N, vec3 albedo, vec3 F0, float rough, float metal)
 {
+    // Light is not attenuated
+    vec3 radianceIn = light.color * light.intensity;
+    
     vec3 L = normalize(-light.direction);
     vec3 H = normalize(L + V);
     float NdotV = max(dot(N, V), 0.0);
     float NdotL = max(dot(N, L), 0.0);
-    vec3 radianceIn = light.color * light.intensity;
-
     float D     = distributionGGX(N, H, rough);
-    float G     = geometrySmith(N, V, L, rough);
+    float G     = geometrySmith(NdotV, NdotL, rough);
     vec3 F      = fresnelSchlick(clamp(dot(H, V), 0.0, 1.0), F0);
 
     vec3 numerator      = D * G * F;
@@ -198,10 +200,8 @@ float geometrySchlickGGX(float NdotV, float roughness)
 }
 
 // Smith G2 function of the separable form
-float geometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
+float geometrySmith(float NdotV, float NdotL, float roughness)
 {
-    float NdotV = max(dot(N, V), 0.0);
-    float NdotL = max(dot(N, L), 0.0);
     float ggx2  = geometrySchlickGGX(NdotV, roughness);
     float ggx1  = geometrySchlickGGX(NdotL, roughness);
 

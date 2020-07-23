@@ -171,8 +171,9 @@
     <None Include="src\shaders\pbr_geometry.frag" />
     <None Include="src\shaders\cubemap.vert" />
     <None Include="src\shaders\cubemap_from_equirect.frag" />
-    <None Include="src\shaders\cubemap_convolve.frag" />
-    <None Include="src\shaders\cubemap_prefilter.frag" />
     <None Include="src\shaders\brdf_quad.frag" />
+    <None Include="..\README.md" />
+    <None Include="src\shaders\cubemap_convolve_irrad.frag" />
+    <None Include="src\shaders\cubemap_prefilter_spec.frag" />
   </ItemGroup>
 </Project>

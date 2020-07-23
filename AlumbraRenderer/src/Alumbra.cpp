@@ -23,7 +23,6 @@ int main()
 
     while (!window.isClosed()) {
         // per-frame time logic
-        // --------------------
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;

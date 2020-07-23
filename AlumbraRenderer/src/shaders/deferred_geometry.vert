@@ -22,7 +22,15 @@ void main()
     vec4 worldPos = model * vec4(aPos, 1.0);
     vs_out.FragPos = worldPos.xyz;
 
-    mat3 normalMatrix = transpose(inverse(mat3(model)));
+    // Expensive and inverse could not exist
+    //mat3 normalMatrix = transpose(inverse(mat3(model)));
+    // As long as tranformations are affine, adjoint will cover most cases
+    mat3 normalMatrix = adjoint(model); 
+    // If no non-uniform scaling occured, can use original transform matrix
+    //mat3 normalMatrix = mat3(model);
+    // If only translations and rotations took place, no need to renormalize
+    //float normalMatrix = 1;
+
     vs_out.Normal = normalMatrix * aNormal;
 
     vec3 T = normalize(normalMatrix * aTangent);
@@ -35,3 +43,19 @@ void main()
 
     gl_Position = projection * view * worldPos;
 }
+
+mat3 adjoint(mat4 m)
+{
+    return mat3( 
+        m[1][1] * m[2][2] - m[1][2] * m[2][1],
+        m[1][2] * m[2][0] - m[1][0] * m[2][2],
+        m[1][0] * m[2][1] - m[1][1] * m[2][0],
+        m[0][2] * m[2][1] - m[0][1] * m[2][2],
+        m[0][0] * m[2][2] - m[0][2] * m[2][0],
+        m[0][1] * m[2][0] - m[0][0] * m[2][1],
+        m[0][1] * m[1][2] - m[0][2] * m[1][1],
+        m[0][2] * m[1][0] - m[0][0] * m[1][2],
+        m[0][0] * m[1][1] - m[0][1] * m[1][0]);
+}
+
+
