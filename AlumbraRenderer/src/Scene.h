@@ -2,6 +2,7 @@
 
 #include "mesh/Model.h"
 #include "mesh/Shapes.h"
+#include "Window.h"
 #include "FreeCamera.h"
 #include "Cubemap.h"
 
@@ -34,6 +35,7 @@ class Scene
 public:
     Scene();
     ~Scene();
+    void update(float deltaTime, const std::vector<InputEvent>& inputEvents);
 
     inline DirectionalLight& directionalLight() { return m_dLight; }
     inline std::vector<PointLight>& pointLights() { return m_pLights; }

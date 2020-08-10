@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "Shader.h"
 
-void Shader::graphicsShaders(const std::vector<std::string>& shaderFiles)
+bool Shader::graphicsShaders(const std::vector<std::string>& shaderFiles)
 {
     std::vector<TypedShader> typedShaders;
     for (const auto& shaderFileName : shaderFiles) {
@@ -9,7 +9,7 @@ void Shader::graphicsShaders(const std::vector<std::string>& shaderFiles)
 
         if (extLoc == std::string::npos) {
             std::cout << "No file extension found\n";
-            assert(0);
+            return false;
         }
 
         GLenum shaderType;
@@ -22,16 +22,17 @@ void Shader::graphicsShaders(const std::vector<std::string>& shaderFiles)
             shaderType = GL_GEOMETRY_SHADER;
         else {
             std::cout << "No valid shader type found.\n";
-            assert(0);
+            return false;
         }
 
         typedShaders.push_back(make_pair(shaderType, shaderFileName));
     }
 
-    compileProgram(typedShaders);
+    bool success = compileProgram(typedShaders);
+    return success;
 }
 
-void Shader::compileProgram(const std::vector<TypedShader>& shaders)
+bool Shader::compileProgram(const std::vector<TypedShader>& shaders)
 {
     ID = glCreateProgram();
     for (const auto& shader : shaders) {
@@ -48,6 +49,7 @@ void Shader::compileProgram(const std::vector<TypedShader>& shaders)
         }
         catch (std::ifstream::failure e) {
             std::cout << "ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ\n";
+            return false;
         }
 
         // Compile shader source and attach to program
@@ -63,6 +65,7 @@ void Shader::compileProgram(const std::vector<TypedShader>& shaders)
     // Finally link the program
     glLinkProgram(ID);
     checkCompileErrors(ID, "PROGRAM");
+    return true;
 }
 
 // activate the shader
@@ -74,13 +77,8 @@ void Shader::use() const
 
 unsigned int Shader::getUniformLocation(const std::string& name) const
 {
-    auto keyval = m_uniformLocationCache.find(name);
-    if (keyval != m_uniformLocationCache.end())
-        return keyval->second;
-
-    auto location = glGetUniformLocation(ID, name.c_str());
-    auto ret = m_uniformLocationCache.insert(make_pair(name, location));
-    return ret.first->second;
+    const auto& [iter, inserted] = m_uniformLocationCache.try_emplace(name, glGetUniformLocation(ID, name.c_str()));
+    return iter->second;
 }
 
 // utility uniform functions

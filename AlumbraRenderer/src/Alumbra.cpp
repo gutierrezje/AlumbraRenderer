@@ -28,6 +28,7 @@ int main()
         lastFrame = currentFrame;
 
         window.processInput(deltaTime);
+        scene.update(deltaTime, window.inputQueue());
 
         window.clear();
 
@@ -38,5 +39,3 @@ int main()
 
     return 0;
 }
-
-

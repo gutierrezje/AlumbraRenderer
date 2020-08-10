@@ -11,8 +11,8 @@ public:
 
     Shader() = default;
 
-    void graphicsShaders(const std::vector<std::string>& shaderFiles);
-    void compileProgram(const std::vector<TypedShader>& shaders);
+    bool graphicsShaders(const std::vector<std::string>& shaderFiles);
+    bool compileProgram(const std::vector<TypedShader>& shaders);
 
     void use() const;
     unsigned int getUniformLocation(const std::string& name) const;

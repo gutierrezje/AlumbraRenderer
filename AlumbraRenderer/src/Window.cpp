@@ -7,6 +7,8 @@ bool firstMouse = true;
 int Window::s_width, Window::s_height;
 bool Window::s_cursorHidden;
 
+
+
 Window::Window(const char* title, int width, int height)
 {
     m_title = title;
@@ -35,7 +37,6 @@ Window::~Window()
 
     glfwDestroyWindow(m_window);
     glfwTerminate();
-
 }
 
 bool Window::initGLFW()
@@ -52,15 +53,17 @@ bool Window::initGLFW()
     m_window = glfwCreateWindow(s_width, s_height, m_title, NULL, NULL);
     if (m_window == NULL)
     {
-        std::cout << "Failed to create GLFW window" << std::endl;
+        std::cout << "Failed to create GLFW window\n";
         return false;
     }
     glfwMakeContextCurrent(m_window);
     glfwSetWindowUserPointer(m_window, static_cast<void*>(this));
     glfwSwapInterval(0);
+
     //Setup callbacks
     glfwSetFramebufferSizeCallback(m_window, framebufferSizeCallback);
-    glfwSetCursorPosCallback(m_window, mouseCallback);
+    glfwSetCursorPosCallback(m_window, cursorPositionCallback);
+    glfwSetMouseButtonCallback(m_window, mouseButtonCallback);
     glfwSetScrollCallback(m_window, scrollCallback);
     glfwSetKeyCallback(m_window, keyCallback);
 
@@ -74,7 +77,7 @@ bool Window::initGL()
     // ---------------------------------------
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
-        std::cout << "Failed to initialize GLAD" << std::endl;
+        std::cout << "Failed to initialize GLAD\n";
         return false;
     }
 }
@@ -91,6 +94,7 @@ void Window::update()
 {
     // Handle Window updating
     glfwSwapBuffers(m_window);
+    m_inputQueue.clear();
     glfwPollEvents();
 }
 
@@ -109,9 +113,6 @@ void Window::clear()
 // ---------------------------------------------------------------------------------------------------------
 void Window::processInput(float deltaTime)
 {
-    if (glfwGetKey(m_window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(m_window, true);
-
     if (glfwGetKey(m_window, GLFW_KEY_W) == GLFW_PRESS)
         g_camera.processKeyboard(FORWARD, deltaTime);
     if (glfwGetKey(m_window, GLFW_KEY_S) == GLFW_PRESS)
@@ -126,6 +127,10 @@ void Window::processInput(float deltaTime)
         g_camera.processKeyboard(DOWN, deltaTime);
 }
 
+void Window::inputQueuePush(InputEvent event) {
+    m_inputQueue.push_back(event);
+}
+
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
 static void framebufferSizeCallback(GLFWwindow* window, int width, int height)
@@ -137,8 +142,9 @@ static void framebufferSizeCallback(GLFWwindow* window, int width, int height)
 
 // glfw: whenever the mouse moves, this callback is called
 // -------------------------------------------------------
-static void mouseCallback(GLFWwindow* window, double xpos, double ypos)
+static void cursorPositionCallback(GLFWwindow* window, double xpos, double ypos)
 {
+    Window* win = static_cast<Window*>(glfwGetWindowUserPointer(window));
     // Calculate mouse position even if movement disabled to prevent jumping around
     if (firstMouse)
     {
@@ -153,12 +159,28 @@ static void mouseCallback(GLFWwindow* window, double xpos, double ypos)
     lastX = xpos;
     lastY = ypos;
 
-    Window* win = static_cast<Window*>(glfwGetWindowUserPointer(window));
     // Disable camera movement while cursor is showing
     if (!win->cursorHidden())
         return;
 
+    InputEvent event{
+        InputType::move,
+        Mouse::none,
+        xpos, ypos
+    };
+    win->inputQueuePush(event);
+
     g_camera.processMouseMovement(xoffset, yoffset);
+}
+
+static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+    Window* win = static_cast<Window*>(glfwGetWindowUserPointer(window));
+    InputEvent event{
+        static_cast<InputType>(action),
+        static_cast<Mouse>(button),
+        0, 0
+    };
+    win->inputQueuePush(event);
 }
 
 // glfw: whenever the mouse scroll wheel scrolls, this callback is called
@@ -174,9 +196,20 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     Window* win = static_cast<Window*>(glfwGetWindowUserPointer(window));
     ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
 
-    if (key == GLFW_KEY_P && action == GLFW_RELEASE) {
+    if (key == GLFW_KEY_P && action == GLFW_PRESS) {
         win->setCursorHidden(!win->cursorHidden());
         GLenum cursorOption = win->cursorHidden() ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL;
         glfwSetInputMode(win->windowInstance(), GLFW_CURSOR, cursorOption);
+    }
+    else if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+        glfwSetWindowShouldClose(window, true);
+    }
+    else {
+        InputEvent event{
+            static_cast<InputType>(action),
+            static_cast<Key>(key),
+            0, 0
+        };
+        win->inputQueuePush(event);
     }
 }

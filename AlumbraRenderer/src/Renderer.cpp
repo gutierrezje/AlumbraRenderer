@@ -41,20 +41,22 @@ Renderer::~Renderer() {}
 
 void Renderer::setupShaders()
 {
-    m_pbrLightingShader.graphicsShaders({ "src/shaders/pbr_shading.vert", "src/shaders/pbr_shading.frag" });
-    m_gBufferShader.graphicsShaders({ "src/shaders/pbr_geometry.vert", "src/shaders/pbr_geometry.frag" });
-    m_skyboxShader.graphicsShaders({ "src/shaders/skybox.vert", "src/shaders/skybox.frag" });
-    m_cubemapCaptureShader.graphicsShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_from_equirect.frag" });
-    m_cubemapConvolveShader.graphicsShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_convolve_irrad.frag" });
-    m_cubemapPrefilterShader.graphicsShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_prefilter_spec.frag" });
-    m_brdfPrecomputeShader.graphicsShaders({ "src/shaders/screen_quad.vert", "src/shaders/brdf_quad.frag" });
-    m_postProcessShader.graphicsShaders({ "src/shaders/screen_quad.vert", "src/shaders/screen_quad.frag" });
-    m_directDepthShader.graphicsShaders({"src/shaders/directional_depth_map.vert"});
-    m_pointDepthShader.graphicsShaders({
+    bool success = true;
+    success &= m_pbrLightingShader.graphicsShaders({ "src/shaders/pbr_shading.vert", "src/shaders/pbr_shading.frag" });
+    success &= m_gBufferShader.graphicsShaders({ "src/shaders/pbr_geometry.vert", "src/shaders/pbr_geometry.frag" });
+    success &= m_skyboxShader.graphicsShaders({ "src/shaders/skybox.vert", "src/shaders/skybox.frag" });
+    success &= m_cubemapCaptureShader.graphicsShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_from_equirect.frag" });
+    success &= m_cubemapConvolveShader.graphicsShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_convolve_irrad.frag" });
+    success &= m_cubemapPrefilterShader.graphicsShaders({ "src/shaders/cubemap.vert", "src/shaders/cubemap_prefilter_spec.frag" });
+    success &= m_brdfPrecomputeShader.graphicsShaders({ "src/shaders/screen_quad.vert", "src/shaders/brdf_quad.frag" });
+    success &= m_postProcessShader.graphicsShaders({ "src/shaders/screen_quad.vert", "src/shaders/screen_quad.frag" });
+    success &= m_directDepthShader.graphicsShaders({"src/shaders/directional_depth_map.vert"});
+    success &= m_pointDepthShader.graphicsShaders({
         "src/shaders/point_depth_map.vert",
         "src/shaders/point_depth_map.geom",
         "src/shaders/point_depth_map.frag" });
-    m_blurShader.graphicsShaders({ "src/shaders/gaussian_blur.vert", "src/shaders/gaussian_blur.frag" });
+    success &= m_blurShader.graphicsShaders({ "src/shaders/gaussian_blur.vert", "src/shaders/gaussian_blur.frag" });
+    assert(success);
 }
 
 void Renderer::setupFramebuffers()
@@ -195,7 +197,6 @@ void Renderer::beginDraw()
 {
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_FRAMEBUFFER_SRGB);
-    //glCullFace(GL_FRONT);
 
     // Directional light depth pass
     glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
